@@ -1,8 +1,13 @@
 <script lang="ts">
   import * as kv from "idb-keyval";
   import { onMount } from "svelte";
+  import { convertAudioFilesInDirectory } from "./audio";
 
-  let state: "checking" | null | {} = "checking";
+  let convertStatus = "";
+  let state:
+    | "checking"
+    | null
+    | { directoryHandle: FileSystemDirectoryHandle } = "checking";
   let permissionDialog: any;
   let permissionDialogAllowButton: any;
 
@@ -17,7 +22,12 @@
       directoryHandle: dir,
       id: "dir" + Date.now(),
     });
-    check();
+    await check();
+  }
+
+  async function closeDirectory() {
+    await kv.del("selectedDirectory");
+    await check();
   }
 
   function restoreDirectoryHandle(
@@ -42,9 +52,7 @@
     const data: SelectedDirectory | undefined = await kv.get(
       "selectedDirectory"
     );
-    const dir = (data && data.directoryHandle) as
-      | FileSystemDirectoryHandle
-      | undefined;
+    const dir = restoreDirectoryHandle(data);
     if (!dir) {
       state = null;
       return;
@@ -70,7 +78,25 @@
     if (permission !== "granted") {
       throw new Error("Folder access permission denied");
     }
-    state = {};
+    state = { directoryHandle: dir };
+  }
+
+  async function convertAudioFiles() {
+    if (typeof state !== "object") {
+      throw new Error("No directory selected");
+    }
+    await convertAudioFilesInDirectory(state.directoryHandle, {
+      setStatus: (status: string) => {
+        convertStatus = status;
+      },
+      writeWarning: (warning: string) => {
+        console.warn(warning);
+      },
+    });
+  }
+
+  async function recheck() {
+    alert(":)");
   }
 
   onMount(() => {
@@ -79,11 +105,7 @@
 </script>
 
 <main>
-  <ui5-shellbar
-    id="shellbar"
-    primary-title="Bemuse"
-    secondary-title="Custom Song Workshop"
-  />
+  <ui5-shellbar id="shellbar" primary-title="Bemuse Custom Song Workshop" />
   {#if state === "checking"}
     <div style="text-align: center; padding: 1rem;">
       <ui5-busy-indicator active size="Large" />
@@ -99,17 +121,38 @@
       </ui5-button>
     </ui5-illustrated-message>
   {:else}
+    <ui5-bar design="Subheader">
+      <ui5-label>{state.directoryHandle.name}</ui5-label>
+      <ui5-button
+        icon="synchronize"
+        title="Refresh"
+        slot="endContent"
+        on:click={recheck}
+      />
+    </ui5-bar>
     <ui5-tabcontainer class="full-width" show-overflow>
-      <ui5-tab text="Overview" selected>
-        <ui5-label>..!.</ui5-label>
+      <ui5-tab text="Overview" selected icon="activities">
+        <ui5-button on:click={convertAudioFiles}>
+          Convert audio files
+        </ui5-button>
+        <br />
+        <ui5-label>{convertStatus}</ui5-label>
       </ui5-tab>
-      <ui5-tab text="Sound files">
+      <ui5-tab text="Sound files" icon="attachment-audio">
         <ui5-label>...</ui5-label>
       </ui5-tab>
-      <ui5-tab text="Charts">
+      <ui5-tab text="Charts" icon="full-stacked-column-chart">
         <ui5-label>...</ui5-label>
       </ui5-tab>
     </ui5-tabcontainer>
+    <ui5-bar design="Footer">
+      <ui5-label slot="startContent">
+        Current folder: {state.directoryHandle.name}
+      </ui5-label>
+      <ui5-button design="Negative" slot="endContent" on:click={closeDirectory}>
+        Close folder
+      </ui5-button>
+    </ui5-bar>
   {/if}
 
   <ui5-dialog bind:this={permissionDialog} header-text="Permission required">
