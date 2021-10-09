@@ -1,65 +1,134 @@
 <script lang="ts">
-  import logo from './assets/svelte.png'
-  import Counter from './lib/Counter.svelte'
+  import * as kv from "idb-keyval";
+  import { onMount } from "svelte";
+
+  let state: "checking" | null | {} = "checking";
+  let permissionDialog: any;
+  let permissionDialogAllowButton: any;
+
+  type SelectedDirectory = {
+    directoryHandle: FileSystemDirectoryHandle;
+    id: string;
+  };
+
+  async function chooseDirectory() {
+    const dir = await window.showDirectoryPicker();
+    await kv.set("selectedDirectory", {
+      directoryHandle: dir,
+      id: "dir" + Date.now(),
+    });
+    check();
+  }
+
+  function restoreDirectoryHandle(
+    data: SelectedDirectory | undefined
+  ): FileSystemDirectoryHandle | undefined {
+    if (!data) {
+      return undefined;
+    }
+    const anyWindow = window as any;
+    if (
+      anyWindow.savedSelectedDirectory &&
+      anyWindow.savedSelectedDirectory.id === data.id
+    ) {
+      return anyWindow.savedSelectedDirectory.directoryHandle;
+    }
+    anyWindow.savedSelectedDirectory = data;
+    return data.directoryHandle;
+  }
+
+  async function check() {
+    state = "checking";
+    const data: SelectedDirectory | undefined = await kv.get(
+      "selectedDirectory"
+    );
+    const dir = (data && data.directoryHandle) as
+      | FileSystemDirectoryHandle
+      | undefined;
+    if (!dir) {
+      state = null;
+      return;
+    }
+    let permission = await dir.queryPermission({ mode: "readwrite" });
+    if (permission === "prompt") {
+      try {
+        permission = await dir.requestPermission({ mode: "readwrite" });
+      } catch (error) {
+        await new Promise<void>((resolve, reject) => {
+          permissionDialog.show();
+          permissionDialog.addEventListener("before-close", () => {
+            reject(new Error("Dialog closed"));
+          });
+          permissionDialogAllowButton.addEventListener("click", () => {
+            resolve();
+            permissionDialog.close();
+          });
+        });
+        permission = await dir.requestPermission({ mode: "readwrite" });
+      }
+    }
+    if (permission !== "granted") {
+      throw new Error("Folder access permission denied");
+    }
+    state = {};
+  }
+
+  onMount(() => {
+    check();
+  });
 </script>
 
 <main>
-  <img src={logo} alt="Svelte Logo" />
-  <h1>Hello Typescript!</h1>
+  <ui5-shellbar
+    id="shellbar"
+    primary-title="Bemuse"
+    secondary-title="Custom Song Workshop"
+  />
+  {#if state === "checking"}
+    <div style="text-align: center; padding: 1rem;">
+      <ui5-busy-indicator active size="Large" />
+    </div>
+  {:else if !state}
+    <ui5-illustrated-message
+      name="NoData"
+      title-text="No active project"
+      subtitle-text="Please choose a song folder to get started"
+    >
+      <ui5-button design="Emphasized" on:click={chooseDirectory}>
+        Choose a song folder
+      </ui5-button>
+    </ui5-illustrated-message>
+  {:else}
+    <ui5-tabcontainer class="full-width" show-overflow>
+      <ui5-tab text="Overview" selected>
+        <ui5-label>..!.</ui5-label>
+      </ui5-tab>
+      <ui5-tab text="Sound files">
+        <ui5-label>...</ui5-label>
+      </ui5-tab>
+      <ui5-tab text="Charts">
+        <ui5-label>...</ui5-label>
+      </ui5-tab>
+    </ui5-tabcontainer>
+  {/if}
 
-  <Counter />
+  <ui5-dialog bind:this={permissionDialog} header-text="Permission required">
+    <ui5-label>Please allow access to file system</ui5-label>
 
-  <p>
-    Visit <a href="https://svelte.dev">svelte.dev</a> to learn how to build Svelte
-    apps.
-  </p>
-
-  <p>
-    Check out <a href="https://github.com/sveltejs/kit#readme">SvelteKit</a> for
-    the officially supported framework, also powered by Vite!
-  </p>
+    <div slot="footer" style="padding: 0.5rem">
+      <ui5-button design="Emphasized" bind:this={permissionDialogAllowButton}>
+        Allow
+      </ui5-button>
+      <ui5-button design="Negative" on:click={permissionDialog.close()}>
+        Deny
+      </ui5-button>
+    </div>
+  </ui5-dialog>
 </main>
 
 <style>
-  :root {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-      Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  }
-
-  main {
-    text-align: center;
-    padding: 1em;
-    margin: 0 auto;
-  }
-
-  img {
-    height: 16rem;
-    width: 16rem;
-  }
-
-  h1 {
-    color: #ff3e00;
-    text-transform: uppercase;
-    font-size: 4rem;
-    font-weight: 100;
-    line-height: 1.1;
-    margin: 2rem auto;
-    max-width: 14rem;
-  }
-
-  p {
-    max-width: 14rem;
-    margin: 1rem auto;
-    line-height: 1.35;
-  }
-
-  @media (min-width: 480px) {
-    h1 {
-      max-width: none;
-    }
-
-    p {
-      max-width: none;
-    }
+  :global(body) {
+    margin: 0;
+    padding: 0;
   }
 </style>
