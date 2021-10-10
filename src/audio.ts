@@ -2,6 +2,7 @@ import { fetchFile } from "@ffmpeg/ffmpeg";
 import parseArgs from "@ffmpeg/ffmpeg/src/utils/parseArgs";
 import { BemusePackage } from "./BemusePackage";
 import { hashBlob } from "./BlobHashing";
+import type { SoundAssetsMetadata } from "./types";
 
 declare const createFFmpegCore: any;
 
@@ -139,10 +140,10 @@ class SoundAssetPacker {
     directoryHandle: FileSystemDirectoryHandle,
     io: ConvertIO
   ) {
-    const dir = await directoryHandle.getDirectoryHandle("assets", {
-      create: true,
-    });
-    const refs: { path: string; hash: string }[] = [];
+    const dir = await directoryHandle
+      .getDirectoryHandle("bemuse-data", { create: true })
+      .then((h) => h.getDirectoryHandle("sound", { create: true }));
+    const refs: SoundAssetsMetadata["refs"] = [];
     for (const [i, pack] of this.packs.entries()) {
       const blob = pack.toBlob();
       const hash = await hashBlob(blob);
@@ -151,7 +152,7 @@ class SoundAssetPacker {
       const writable = await file.createWritable();
       await writable.write(blob);
       await writable.close();
-      refs.push({ path: fileName, hash });
+      refs.push({ path: fileName, hash, size: blob.size });
       io.setStatus(`Wrote pack #${i + 1}: ${fileName}`);
     }
 
