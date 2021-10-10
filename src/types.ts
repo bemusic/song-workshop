@@ -6,6 +6,6 @@ export interface SoundAssetsMetadata {
   }[];
   files: {
     name: string;
-    ref: [string, string, string];
+    ref: [number, number, number];
   }[];
 }

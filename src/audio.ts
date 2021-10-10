@@ -2,29 +2,8 @@ import { fetchFile } from "@ffmpeg/ffmpeg";
 import parseArgs from "@ffmpeg/ffmpeg/src/utils/parseArgs";
 import { BemusePackage } from "./BemusePackage";
 import { hashBlob } from "./BlobHashing";
+import { getFfmpegInstance } from "./ffmpegCore";
 import type { SoundAssetsMetadata } from "./types";
-
-declare const createFFmpegCore: any;
-
-const createFfmpegInstance = async () => {
-  const wasmUrl = await fetch("/ffmpeg-core-st/ffmpeg-core.wasm")
-    .then((r) => r.blob())
-    .then((b) => URL.createObjectURL(b));
-  const core = await createFFmpegCore({
-    mainScriptUrlOrBlob: "/ffmpeg-core-st/ffmpeg-core.js",
-    printErr: (message) => {},
-    print: (message) => {},
-    locateFile: (path, prefix) => {
-      if (path.endsWith("ffmpeg-core.wasm")) {
-        return wasmUrl;
-      }
-      return prefix + path;
-    },
-  });
-  return core;
-};
-
-Object.assign(window, { createFfmpegInstance });
 
 type ConvertIO = {
   setStatus: (status: string) => void;
@@ -37,7 +16,7 @@ export async function convertAudioFilesInDirectory(
 ) {
   let i = 1;
   io.setStatus("Loading ffmpeg core (~16 MB, please wait)…");
-  let ffmpeg = await createFfmpegInstance();
+  let ffmpeg = await getFfmpegInstance();
   io.setStatus("Getting ready to convert files.");
   const soundAssets: SoundAsset[] = [];
   for await (const [name, handle] of dir) {

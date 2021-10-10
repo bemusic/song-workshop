@@ -125,6 +125,18 @@
       recheck();
     }
   }
+
+  let renderingSong = false;
+  let renderStatus = "";
+  async function renderSong() {
+    renderingSong = true;
+    try {
+    } finally {
+      renderingSong = false;
+      recheck();
+    }
+  }
+
   Object.assign(window, { convertAudioFiles, indexCharts });
 
   let checkingSong = false;
@@ -376,6 +388,32 @@
               </ui5-table-row>
             {/each}
           </ui5-table>
+        </ui5-card>
+      </ui5-tab>
+
+      <ui5-tab text="Preview" icon="media-play" style="padding: 1rem">
+        <ui5-card>
+          <ui5-card-header
+            slot="header"
+            title-text="Render song"
+            subtitle-text={indexStatus}
+          />
+          <div style="padding: 1rem; display: flex; gap: 1rem">
+            {#if charts.length > 0 && soundAssets}
+              <ui5-select>
+                {#each charts as chart}
+                  <ui5-option>{chart.file}</ui5-option>
+                {/each}
+              </ui5-select>
+              <ui5-button on:click={renderSong} disabled={renderingSong}>
+                Render song
+              </ui5-button>
+            {:else}
+              <ui5-label>
+                Please optimize sound assets and scan charts first.
+              </ui5-label>
+            {/if}
+          </div>
         </ui5-card>
       </ui5-tab>
     </ui5-tabcontainer>

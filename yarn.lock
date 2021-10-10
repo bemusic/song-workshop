@@ -124,6 +124,11 @@
   dependencies:
     "@types/istanbul-lib-report" "*"
 
+"@types/lodash@^4.14.175":
+  version "4.14.175"
+  resolved "https://registry.yarnpkg.com/@types/lodash/-/lodash-4.14.175.tgz#b78dfa959192b01fae0ad90e166478769b215f45"
+  integrity sha512-XmdEOrKQ8a1Y/yxQFOMbC47G/V2VDO1GvMRnl4O75M4GW/abC5tnfzadQYkqEveqRM1dEJGFFegfPNA2vvx2iw==
+
 "@types/mocha@^9.0.0":
   version "9.0.0"
   resolved "https://registry.yarnpkg.com/@types/mocha/-/mocha-9.0.0.tgz#3205bcd15ada9bc681ac20bef64e9e6df88fd297"
@@ -378,6 +383,15 @@ bemuse-indexer@^49.0.0:
     invariant "^2.2.4"
     lodash "^4.17.11"
     object-assign "^4.1.1"
+
+bemuse-notechart@^49.0.0:
+  version "49.0.0"
+  resolved "https://registry.yarnpkg.com/bemuse-notechart/-/bemuse-notechart-49.0.0.tgz#1c83307858a4710bf432fcda20b756ed8dcedaf4"
+  integrity sha512-MZjr7cYkuuHKM1VOHPteKsL3nMUu4IypNl0/0wEJBGmuMkQjVyKxXEaZGA4WSrwU08XqdE3QJ+kdRdPLKdCntQ==
+  dependencies:
+    bms "^49.0.0"
+    bmson "^49.0.0"
+    lodash "^4.17.11"
 
 binary-extensions@^2.0.0:
   version "2.2.0"
@@ -1727,7 +1741,7 @@ lodash.values@^4.3.0:
   resolved "https://registry.yarnpkg.com/lodash.values/-/lodash.values-4.3.0.tgz#a3a6c2b0ebecc5c2cba1c17e6e620fe81b53d347"
   integrity sha1-o6bCsOvsxcLLocF+bmIP6BtT00c=
 
-lodash@^4.17.11:
+lodash@^4.17.11, lodash@^4.17.21:
   version "4.17.21"
   resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.21.tgz#679591c564c3bffaae8454cf0b3df370c3d6911c"
   integrity sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==
