@@ -37,6 +37,7 @@ export async function indexChartFilesFromDirectory(
   await updateSongFile(directoryHandle, (song) => {
     return {
       ...song,
+      bemusepack_url: "bemuse-data/sound/metadata.json",
       charts: result.charts,
       title: song.title || result.title,
       artist: song.artist || result.artist,

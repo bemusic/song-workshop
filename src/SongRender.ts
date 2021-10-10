@@ -224,7 +224,7 @@ async function convertToOgg(buf: AudioBuffer, replayGain: number) {
   }
 }
 
-async function prepareFfmpeg(buf: AudioBuffer) {
+export async function prepareFfmpeg(buf: AudioBuffer) {
   const ffmpeg = await createFfmpegInstance();
   for (let i = 0; i < 2; i++) {
     const channel = buf.getChannelData(i);

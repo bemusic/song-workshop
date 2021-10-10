@@ -3,6 +3,8 @@
   import { onMount } from "svelte";
   import { convertAudioFilesInDirectory } from "./audio";
   import { indexChartFilesFromDirectory } from "./ChartIndexing";
+  import { getSongFileHandleFromDirectory } from "./SongFile";
+  import { createPreviewForDirectory } from "./SongPreview";
   import { renderChart, renderSongInDirectory } from "./SongRender";
   import type { SoundAssetsMetadata } from "./types";
 
@@ -152,6 +154,30 @@
     }
   }
 
+  let previewStartTimeInput: any;
+  let creatingPreview = false;
+  let createPreviewStatus = "";
+  async function createPreview() {
+    creatingPreview = true;
+    try {
+      if (typeof state !== "object") {
+        throw new Error("No directory selected");
+      }
+      createPreviewStatus = "Creating preview...";
+      const startTime = parseFloat(previewStartTimeInput.value) || 0;
+      await createPreviewForDirectory(
+        state.directoryHandle,
+        startTime,
+        (text) => {
+          createPreviewStatus = text;
+        }
+      );
+    } finally {
+      creatingPreview = false;
+      recheck();
+    }
+  }
+
   Object.assign(window, { convertAudioFiles, indexCharts });
 
   let checkingSong = false;
@@ -159,6 +185,7 @@
   let charts: any[] = [];
   let replayGain: string | undefined;
   let songOggPromise: Promise<string> | undefined;
+  let previewCreated = false;
 
   async function recheck() {
     checkingSong = true;
@@ -168,6 +195,13 @@
       }
       const bemuseDataDirPromise =
         state.directoryHandle.getDirectoryHandle("bemuse-data");
+      const songJsonPromise = getSongFileHandleFromDirectory(
+        state.directoryHandle,
+        { create: false }
+      )
+        .then((f) => f.getFile())
+        .then((f) => f.text())
+        .then((text) => JSON.parse(text));
 
       try {
         const bemuseDataDir = await bemuseDataDirPromise;
@@ -182,11 +216,15 @@
       }
 
       try {
-        const bemuseDataDir = await bemuseDataDirPromise;
-        const songFileHandle = await bemuseDataDir.getFileHandle("song.json");
-        const songFile = await songFileHandle.getFile();
-        const songJson = JSON.parse(await songFile.text());
+        const songJson = await songJsonPromise;
         charts = songJson.charts;
+      } catch (error) {
+        charts = [];
+      }
+
+      try {
+        const bemuseDataDir = await bemuseDataDirPromise;
+        const songJson = await songJsonPromise;
         replayGain = songJson.replaygain;
         if (replayGain) {
           songOggPromise = bemuseDataDir
@@ -195,9 +233,15 @@
             .then((f) => URL.createObjectURL(f));
         }
       } catch (error) {
-        charts = [];
         replayGain = undefined;
         songOggPromise = undefined;
+      }
+
+      try {
+        const songJson = await songJsonPromise;
+        previewCreated = !!songJson.preview_url;
+      } catch (error) {
+        previewCreated = false;
       }
     } finally {
       checkingSong = false;
@@ -234,6 +278,10 @@
     {
       label: "Song preview",
       description: "Create a 30-second preview of the song.",
+      ok: previewCreated,
+      infoText: previewCreated
+        ? "Preview already created"
+        : "No preview file found",
     },
     {
       label: "Song metadata",
@@ -419,11 +467,7 @@
 
       <ui5-tab text="Preview" icon="media-play" style="padding: 1rem">
         <ui5-card>
-          <ui5-card-header
-            slot="header"
-            title-text="Render song"
-            subtitle-text={indexStatus}
-          />
+          <ui5-card-header slot="header" title-text="Render song" />
           <div
             style="padding: 1rem; display: flex; gap: 1rem; align-items: center"
           >
@@ -458,6 +502,28 @@
             </div>
           {/if}
         </ui5-card>
+
+        {#if replayGain && songOggPromise}
+          <ui5-card style="margin-top: 1rem">
+            <ui5-card-header slot="header" title-text="Create song preview" />
+            <div
+              style="padding: 1rem; display: flex; gap: 1rem; align-items: center"
+            >
+              <ui5-input
+                placeholder="Start time in seconds"
+                bind:this={previewStartTimeInput}
+              />
+              <ui5-button on:click={createPreview} disabled={creatingPreview}>
+                Create song preview
+              </ui5-button>
+              <ui5-label>{createPreviewStatus}</ui5-label>
+            </div>
+          </ui5-card>
+        {/if}
+      </ui5-tab>
+
+      <ui5-tab text="Metadata" icon="information" style="padding: 1rem">
+        .
       </ui5-tab>
     </ui5-tabcontainer>
     <ui5-bar design="Footer">
