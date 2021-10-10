@@ -1,3 +1,3 @@
-`ffmpeg-core` built from <https://github.com/bemusic/ffmpeg.wasm-core/tree/d56feb90018be2e47fc9d0a503f4e1ea3f977cc6> by GitHub Actions: <https://github.com/bemusic/ffmpeg.wasm-core/actions/runs/1324183418>
+`ffmpeg-core` built from <https://github.com/bemusic/ffmpeg.wasm-core/tree/762e310b0f30240c5c4d3746755ca5b69f1523ec> by GitHub Actions: <https://github.com/bemusic/ffmpeg.wasm-core/actions/runs/1325112400>
 
 License: LGPL version 2.1 or later
