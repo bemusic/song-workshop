@@ -64565,8 +64565,9 @@ module.exports = function whichTypedArray(value) {
 },{"available-typed-arrays":15,"call-bind/callBound":105,"es-abstract/helpers/getOwnPropertyDescriptor":141,"foreach":144,"has-tostringtag/shams":150,"is-typed-array":205}],270:[function(require,module,exports){
 module.exports = {
   bms: require("bms"),
+  buffer: require("buffer"),
   indexer: require("bemuse-indexer"),
 };
 
-},{"bemuse-indexer":27,"bms":35}]},{},[270])(270)
+},{"bemuse-indexer":27,"bms":35,"buffer":103}]},{},[270])(270)
 });
