@@ -2,9 +2,9 @@
   import * as kv from "idb-keyval";
   import { onMount } from "svelte";
   import { convertAudioFilesInDirectory } from "./audio";
+  import { indexChartFilesFromDirectory } from "./ChartIndexing";
   import type { SoundAssetsMetadata } from "./types";
 
-  let convertStatus = "";
   let state:
     | "checking"
     | null
@@ -84,8 +84,10 @@
   }
 
   let convertingAudioFiles = false;
+  let convertStatus = "";
   async function convertAudioFiles() {
     convertingAudioFiles = true;
+    convertStatus = "Indexing...";
     try {
       if (typeof state !== "object") {
         throw new Error("No directory selected");
@@ -104,6 +106,27 @@
     }
   }
 
+  let indexingCharts = false;
+  let indexStatus = "";
+  async function indexCharts() {
+    indexingCharts = true;
+    try {
+      if (typeof state !== "object") {
+        throw new Error("No directory selected");
+      }
+      await indexChartFilesFromDirectory(state.directoryHandle, {
+        setStatus: (status: string) => {
+          indexStatus = status;
+        },
+      });
+      indexStatus = "Finished indexing charts.";
+    } finally {
+      indexingCharts = false;
+      recheck();
+    }
+  }
+  Object.assign(window, { convertAudioFiles, indexCharts });
+
   let checkingSong = false;
   let soundAssets: SoundAssetsMetadata | null = null;
   let charts: any[] = [];
@@ -116,6 +139,7 @@
       }
       const bemuseDataDirPromise =
         state.directoryHandle.getDirectoryHandle("bemuse-data");
+
       try {
         const bemuseDataDir = await bemuseDataDirPromise;
         const metadata = await bemuseDataDir
@@ -127,22 +151,47 @@
       } catch (error) {
         soundAssets = null;
       }
+
+      try {
+        const bemuseDataDir = await bemuseDataDirPromise;
+        const songFileHandle = await bemuseDataDir.getFileHandle("song.json");
+        const songFile = await songFileHandle.getFile();
+        const songJson = JSON.parse(await songFile.text());
+        charts = songJson.charts;
+      } catch (error) {
+        charts = [];
+      }
     } finally {
       checkingSong = false;
     }
   }
 
+  function formatSize(bytes: number) {
+    return (bytes / 1048576).toFixed(2) + " MB";
+  }
+
+  function totalSize(soundAssets: SoundAssetsMetadata) {
+    return soundAssets.refs.reduce((acc, ref) => {
+      return acc + ref.size;
+    }, 0);
+  }
+
   $: checkItems = [
     {
       label: "Optimize sound assets",
-      ok: !!soundAssets,
-      infoText: soundAssets ? "Already optimized" : "No sound assets found",
       description:
         "Sound assets should be optimized for smaller size and faster delivery.",
+      ok: !!soundAssets,
+      infoText: soundAssets
+        ? `Already optimized — ${formatSize(totalSize(soundAssets))}`
+        : "No sound assets found",
     },
     {
       label: "Scan chart files",
-      description: "Scan the chart files to make its presence visible.",
+      description:
+        "Scan the chart files to update the available charts in the song.",
+      ok: charts.length > 0,
+      infoText: charts.length + " chart files found",
     },
     {
       label: "Song preview",
@@ -153,6 +202,36 @@
       description: "Set up song metadata.",
     },
   ];
+
+  function formatChartExtra(chart: any) {
+    const parts: string[] = [
+      chart.keys + (chart.scratch ? "+" : ""),
+      formatDuration(chart.duration),
+      chart.noteCount + " notes",
+      formatBpm(chart.bpm),
+    ];
+
+    return parts.join(" / ");
+  }
+
+  function formatDuration(seconds: number) {
+    seconds = Math.ceil(seconds);
+    return Math.floor(seconds / 60) + "m" + (seconds % 60) + "s";
+  }
+
+  function formatBpm(bpm: {
+    init: number;
+    min: number;
+    median: number;
+    max: number;
+  }) {
+    const f = (n: number) => n.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+    const soflan =
+      bpm.min != bpm.max
+        ? ` [${f(bpm.min)}/${f(bpm.median)}/${f(bpm.max)}]`
+        : "";
+    return `BPM: ${f(bpm.init)}${soflan}`;
+  }
 
   onMount(() => {
     check();
@@ -185,7 +264,7 @@
         on:click={recheck}
       />
     </ui5-bar>
-    <ui5-tabcontainer class="full-width" show-overflow>
+    <ui5-tabcontainer class="full-width" show-overflow fixed>
       <ui5-tab text="Overview" selected icon="activities">
         <ui5-list class="full-width">
           {#each checkItems as item}
@@ -250,8 +329,18 @@
         style="padding: 1rem"
       >
         <ui5-card>
-          <ui5-card-header slot="header" title-text="Charts">
-            <ui5-button slot="action">Scan charts</ui5-button>
+          <ui5-card-header
+            slot="header"
+            title-text="Charts"
+            subtitle-text={indexStatus}
+          >
+            <ui5-button
+              slot="action"
+              on:click={indexCharts}
+              disabled={indexingCharts}
+            >
+              Scan charts
+            </ui5-button>
           </ui5-card-header>
 
           <ui5-table no-data-text="No Data">
@@ -263,7 +352,27 @@
             <ui5-table-column slot="columns">Difficulty</ui5-table-column>
             {#each charts as chart}
               <ui5-table-row>
-                <ui5-table-cell>{chart.file}</ui5-table-cell>
+                <ui5-table-cell>
+                  {chart.file}
+                  <small style="display: block">
+                    {formatChartExtra(chart)}
+                  </small>
+                </ui5-table-cell>
+                <ui5-table-cell>
+                  {chart.info.title}
+                  {#each chart.info.subtitles as t}
+                    <small style="display: block">{t}</small>
+                  {/each}
+                </ui5-table-cell>
+                <ui5-table-cell>
+                  {chart.info.artist}
+                  {#each chart.info.subartists as t}
+                    <small style="display: block">{t}</small>
+                  {/each}
+                </ui5-table-cell>
+                <ui5-table-cell>{chart.info.genre}</ui5-table-cell>
+                <ui5-table-cell>{chart.info.level}</ui5-table-cell>
+                <ui5-table-cell>{chart.info.difficulty}</ui5-table-cell>
               </ui5-table-row>
             {/each}
           </ui5-table>
