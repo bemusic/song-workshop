@@ -4,6 +4,42 @@ import { createFfmpegInstance, getFfmpegInstance } from "./ffmpegCore";
 import { SongWorkshopLibs } from "./SongWorkshopLibs";
 import type { SoundAssetsMetadata } from "./types";
 import parseArgs from "@ffmpeg/ffmpeg/src/utils/parseArgs";
+import { updateSongFile } from "./SongFile";
+
+export async function renderSongInDirectory(
+  directoryHandle: FileSystemDirectoryHandle,
+  chartFilename: string,
+  soundAssetsMetadata: SoundAssetsMetadata,
+  log: (message: string) => void
+) {
+  const chartHandle = await directoryHandle.getFileHandle(chartFilename);
+  const chartFile = await chartHandle.getFile();
+  const chartData = await chartFile.arrayBuffer();
+  const dataDir = await directoryHandle.getDirectoryHandle("bemuse-data");
+  const soundDir = await dataDir.getDirectoryHandle("sound");
+  const { replayGain, ogg } = await renderChart({
+    chartData,
+    chartFilename,
+    loadBemusepack: async (path) => {
+      const fileHandle = await soundDir.getFileHandle(path);
+      const file = await fileHandle.getFile();
+      const data = await file.arrayBuffer();
+      return data;
+    },
+    soundAssetsMetadata,
+    log,
+  });
+  const oggHandle = await dataDir.getFileHandle("song.ogg", { create: true });
+  const writable = await oggHandle.createWritable();
+  await writable.write(ogg);
+  await writable.close();
+  await updateSongFile(directoryHandle, (song) => {
+    return {
+      ...song,
+      replaygain: replayGain + " dB",
+    };
+  });
+}
 
 export type RenderOptions = {
   soundAssetsMetadata: SoundAssetsMetadata;
@@ -13,7 +49,7 @@ export type RenderOptions = {
   log?: (text: string) => void;
 };
 
-export async function renderSong(options: RenderOptions) {
+export async function renderChart(options: RenderOptions) {
   const {
     soundAssetsMetadata,
     chartData,
@@ -41,7 +77,8 @@ export async function renderSong(options: RenderOptions) {
       console.error(error);
     }
   }
-  const getAudioBuffer = (path: string) => keysounds[path.toLowerCase()];
+  const getAudioBuffer = (path: string) =>
+    (path && keysounds[path.toLowerCase()]) || undefined;
 
   log("Getting notes...");
   const song = await getNotes(chartData, chartFilename, {
@@ -179,7 +216,7 @@ async function convertToOgg(buf: AudioBuffer, replayGain: number) {
     }
 
     const ogg = await ffmpeg.FS.readFile("song.ogg");
-    return ogg;
+    return ogg as Uint8Array;
   } finally {
     ffmpeg.FS.unlink("ch0.f32");
     ffmpeg.FS.unlink("ch1.f32");

@@ -1,5 +1,5 @@
 import type { IndexingInputFile } from "bemuse-indexer/lib/types";
-import { getSongFileHandleFromDirectory } from "./SongFile";
+import { getSongFileHandleFromDirectory, updateSongFile } from "./SongFile";
 import { SongWorkshopLibs } from "./SongWorkshopLibs";
 
 export type IndexIO = {
@@ -34,30 +34,16 @@ export async function indexChartFilesFromDirectory(
       io.setStatus(`Indexed (${processed}/${total}) ${name}...`);
     },
   });
-  const data = await getSongFileHandleFromDirectory(directoryHandle, {
-    create: false,
-  })
-    .then((handle) => handle.getFile())
-    .then(async (file) => JSON.parse(await file.text()))
-    .catch((e) => {
-      console.warn("Failed to read initial data", e);
-      return {};
-    });
-
-  Object.assign(data, {
-    charts: result.charts,
-    title: data.title || result.title,
-    artist: data.artist || result.artist,
-    genre: data.genre || result.genre,
-    bpm: data.bpm || result.bpm,
+  await updateSongFile(directoryHandle, (song) => {
+    return {
+      ...song,
+      charts: result.charts,
+      title: song.title || result.title,
+      artist: song.artist || result.artist,
+      genre: song.genre || result.genre,
+      bpm: song.bpm || result.bpm,
+    };
   });
-
-  const fileHandle = await getSongFileHandleFromDirectory(directoryHandle, {
-    create: true,
-  });
-  const writable = await fileHandle.createWritable();
-  await writable.write(JSON.stringify(data, null, 2));
-  await writable.close();
 }
 
 // SongWorkshopLibs.indexer.getSongInfo(files, { onProgress })

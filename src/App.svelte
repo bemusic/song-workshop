@@ -3,6 +3,7 @@
   import { onMount } from "svelte";
   import { convertAudioFilesInDirectory } from "./audio";
   import { indexChartFilesFromDirectory } from "./ChartIndexing";
+  import { renderChart, renderSongInDirectory } from "./SongRender";
   import type { SoundAssetsMetadata } from "./types";
 
   let state:
@@ -127,10 +128,24 @@
   }
 
   let renderingSong = false;
+  let chartSelector: any;
   let renderStatus = "";
   async function renderSong() {
     renderingSong = true;
     try {
+      if (typeof state !== "object") {
+        throw new Error("No directory selected");
+      }
+      const chartFilename: string = chartSelector.selectedOption.dataset.chart;
+      const directoryHandle = state.directoryHandle;
+      await renderSongInDirectory(
+        state.directoryHandle,
+        chartFilename,
+        soundAssets,
+        (message: string) => {
+          renderStatus = message;
+        }
+      );
     } finally {
       renderingSong = false;
       recheck();
@@ -142,6 +157,8 @@
   let checkingSong = false;
   let soundAssets: SoundAssetsMetadata | null = null;
   let charts: any[] = [];
+  let replayGain: string | undefined;
+  let songOggPromise: Promise<string> | undefined;
 
   async function recheck() {
     checkingSong = true;
@@ -170,8 +187,17 @@
         const songFile = await songFileHandle.getFile();
         const songJson = JSON.parse(await songFile.text());
         charts = songJson.charts;
+        replayGain = songJson.replaygain;
+        if (replayGain) {
+          songOggPromise = bemuseDataDir
+            .getFileHandle("song.ogg")
+            .then((f) => f.getFile())
+            .then((f) => URL.createObjectURL(f));
+        }
       } catch (error) {
         charts = [];
+        replayGain = undefined;
+        songOggPromise = undefined;
       }
     } finally {
       checkingSong = false;
@@ -398,22 +424,39 @@
             title-text="Render song"
             subtitle-text={indexStatus}
           />
-          <div style="padding: 1rem; display: flex; gap: 1rem">
+          <div
+            style="padding: 1rem; display: flex; gap: 1rem; align-items: center"
+          >
             {#if charts.length > 0 && soundAssets}
-              <ui5-select>
+              <ui5-select bind:this={chartSelector}>
                 {#each charts as chart}
-                  <ui5-option>{chart.file}</ui5-option>
+                  <ui5-option data-chart={chart.file}>{chart.file}</ui5-option>
                 {/each}
               </ui5-select>
               <ui5-button on:click={renderSong} disabled={renderingSong}>
                 Render song
               </ui5-button>
+              <ui5-label>{renderStatus}</ui5-label>
             {:else}
               <ui5-label>
                 Please optimize sound assets and scan charts first.
               </ui5-label>
             {/if}
           </div>
+          {#if replayGain && songOggPromise}
+            <div
+              style="padding: 0 1rem 1rem; display: flex; gap: 1rem; align-items: center"
+            >
+              {#await songOggPromise}
+                <ui5-busy-indicator active size="Large" />
+              {:then songOgg}
+                <audio controls src={songOgg} />
+                <ui5-label>
+                  ReplayGain: {replayGain}
+                </ui5-label>
+              {/await}
+            </div>
+          {/if}
         </ui5-card>
       </ui5-tab>
     </ui5-tabcontainer>
