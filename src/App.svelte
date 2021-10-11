@@ -1,9 +1,15 @@
 <script lang="ts">
   import * as kv from "idb-keyval";
+  import memoizeOne from "memoize-one";
   import { onMount } from "svelte";
   import { convertAudioFilesInDirectory } from "./audio";
   import { indexChartFilesFromDirectory } from "./ChartIndexing";
-  import { getSongFileHandleFromDirectory } from "./SongFile";
+  import MetadataEditor from "./MetadataEditor.svelte";
+  import {
+    getSongFileHandleFromDirectory,
+    Song,
+    updateSongFile,
+  } from "./SongFile";
   import { createPreviewForDirectory } from "./SongPreview";
   import { renderChart, renderSongInDirectory } from "./SongRender";
   import type { SoundAssetsMetadata } from "./types";
@@ -178,14 +184,38 @@
     }
   }
 
+  async function saveMetadata(update: (song: Song) => Song) {
+    try {
+      if (typeof state !== "object") {
+        throw new Error("No directory selected");
+      }
+      await updateSongFile(state.directoryHandle, update);
+    } finally {
+      recheck();
+    }
+  }
+
   Object.assign(window, { convertAudioFiles, indexCharts });
 
   let checkingSong = false;
   let soundAssets: SoundAssetsMetadata | null = null;
+  let songMeta: any = null;
   let charts: any[] = [];
   let replayGain: string | undefined;
-  let songOggPromise: Promise<string> | undefined;
+  let songOgg: string | undefined;
+  let previewMp3: string | undefined;
   let previewCreated = false;
+
+  const getSongOgg = memoizeOne(
+    (file: File) => URL.createObjectURL(file),
+    (next: [File], prev: [File]) =>
+      next[0]?.lastModified === prev[0]?.lastModified
+  );
+  const getPreviewMp3 = memoizeOne(
+    (file: File) => URL.createObjectURL(file),
+    (next: [File], prev: [File]) =>
+      next[0]?.lastModified === prev[0]?.lastModified
+  );
 
   async function recheck() {
     checkingSong = true;
@@ -217,24 +247,38 @@
 
       try {
         const songJson = await songJsonPromise;
+        songMeta = songJson;
         charts = songJson.charts;
       } catch (error) {
+        songMeta = null;
         charts = [];
       }
 
       try {
-        const bemuseDataDir = await bemuseDataDirPromise;
         const songJson = await songJsonPromise;
         replayGain = songJson.replaygain;
-        if (replayGain) {
-          songOggPromise = bemuseDataDir
-            .getFileHandle("song.ogg")
-            .then((f) => f.getFile())
-            .then((f) => URL.createObjectURL(f));
-        }
       } catch (error) {
         replayGain = undefined;
-        songOggPromise = undefined;
+      }
+
+      try {
+        const bemuseDataDir = await bemuseDataDirPromise;
+        const songFile = await bemuseDataDir
+          .getFileHandle("song.ogg")
+          .then((f) => f.getFile());
+        songOgg = getSongOgg(songFile);
+      } catch (error) {
+        songOgg = undefined;
+      }
+
+      try {
+        const bemuseDataDir = await bemuseDataDirPromise;
+        const songFile = await bemuseDataDir
+          .getFileHandle("preview.mp3")
+          .then((f) => f.getFile());
+        previewMp3 = getPreviewMp3(songFile);
+      } catch (error) {
+        previewMp3 = undefined;
       }
 
       try {
@@ -487,23 +531,19 @@
               </ui5-label>
             {/if}
           </div>
-          {#if replayGain && songOggPromise}
+          {#if replayGain && songOgg}
             <div
               style="padding: 0 1rem 1rem; display: flex; gap: 1rem; align-items: center"
             >
-              {#await songOggPromise}
-                <ui5-busy-indicator active size="Large" />
-              {:then songOgg}
-                <audio controls src={songOgg} />
-                <ui5-label>
-                  ReplayGain: {replayGain}
-                </ui5-label>
-              {/await}
+              <audio controls src={songOgg} />
+              <ui5-label>
+                ReplayGain: {replayGain}
+              </ui5-label>
             </div>
           {/if}
         </ui5-card>
 
-        {#if replayGain && songOggPromise}
+        {#if replayGain && songOgg}
           <ui5-card style="margin-top: 1rem">
             <ui5-card-header slot="header" title-text="Create song preview" />
             <div
@@ -512,18 +552,30 @@
               <ui5-input
                 placeholder="Start time in seconds"
                 bind:this={previewStartTimeInput}
+                value={songMeta.preview_offset || ""}
               />
               <ui5-button on:click={createPreview} disabled={creatingPreview}>
                 Create song preview
               </ui5-button>
               <ui5-label>{createPreviewStatus}</ui5-label>
             </div>
+            {#if previewMp3}
+              <div
+                style="padding: 0 1rem 1rem; display: flex; gap: 1rem; align-items: center"
+              >
+                <audio controls src={previewMp3} />
+              </div>
+            {/if}
           </ui5-card>
         {/if}
       </ui5-tab>
 
       <ui5-tab text="Metadata" icon="information" style="padding: 1rem">
-        .
+        {#if songMeta}
+          <MetadataEditor songJson={songMeta} onSave={saveMetadata} />
+        {:else}
+          <ui5-label> Please scan charts first. </ui5-label>
+        {/if}
       </ui5-tab>
     </ui5-tabcontainer>
     <ui5-bar design="Footer">
