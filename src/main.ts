@@ -1,4 +1,6 @@
 import App from "./App.svelte";
+import Renoter from "./Renoter.svelte";
+
 import "@ui5/webcomponents/dist/Button";
 import "@ui5/webcomponents/dist/BusyIndicator";
 import "@ui5/webcomponents/dist/Card";
@@ -6,6 +8,7 @@ import "@ui5/webcomponents/dist/CardHeader";
 import "@ui5/webcomponents/dist/DatePicker";
 import "@ui5/webcomponents/dist/Dialog";
 import "@ui5/webcomponents/dist/Input";
+import "@ui5/webcomponents/dist/MessageStrip";
 import "@ui5/webcomponents/dist/Option";
 import "@ui5/webcomponents/dist/Select";
 import "@ui5/webcomponents/dist/TabContainer";
@@ -28,8 +31,18 @@ import "@ui5/webcomponents-icons/dist/media-play";
 import "@ui5/webcomponents-icons/dist/message-success";
 import "@ui5/webcomponents-icons/dist/synchronize";
 
-if (location.search === "?test") {
+const searchParams = new URLSearchParams(window.location.search);
+
+if (searchParams.has("test")) {
   import("./tests");
+} else if (searchParams.has("renote")) {
+  new Renoter({
+    target: document.getElementById("app"),
+    props: {
+      renoteSource: searchParams.get("renote"),
+      renoteTarget: searchParams.get("target"),
+    },
+  });
 } else {
   new App({
     target: document.getElementById("app"),

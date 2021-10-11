@@ -9,3 +9,5 @@ declare namespace SongWorkshopLibsNamespace {
 export const SongWorkshopLibs: typeof SongWorkshopLibsNamespace = (
   window as any
 ).SongWorkshopLibs;
+
+export type SongWorkshopLibs = typeof SongWorkshopLibsNamespace;
