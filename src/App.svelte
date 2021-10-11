@@ -1,9 +1,14 @@
 <script lang="ts">
-  import * as kv from "idb-keyval";
   import memoizeOne from "memoize-one";
   import { onMount } from "svelte";
   import { convertAudioFilesInDirectory } from "./audio";
   import { indexChartFilesFromDirectory } from "./ChartIndexing";
+  import {
+    getSelectedDirectory,
+    SelectedDirectory,
+    setSelectedDirectory,
+    unsetSelectedDirectory,
+  } from "./DirectorySelection";
   import MetadataEditor from "./MetadataEditor.svelte";
   import {
     getSongFileHandleFromDirectory,
@@ -21,74 +26,25 @@
   let permissionDialog: any;
   let permissionDialogAllowButton: any;
 
-  type SelectedDirectory = {
-    directoryHandle: FileSystemDirectoryHandle;
-    id: string;
-  };
-
   async function chooseDirectory() {
     const dir = await window.showDirectoryPicker();
-    await kv.set("selectedDirectory", {
-      directoryHandle: dir,
-      id: "dir" + Date.now(),
-    });
+    await setSelectedDirectory(dir);
     await check();
   }
 
   async function closeDirectory() {
-    await kv.del("selectedDirectory");
+    await unsetSelectedDirectory();
     await check();
-  }
-
-  function restoreDirectoryHandle(
-    data: SelectedDirectory | undefined
-  ): FileSystemDirectoryHandle | undefined {
-    if (!data) {
-      return undefined;
-    }
-    const anyWindow = window as any;
-    if (
-      anyWindow.savedSelectedDirectory &&
-      anyWindow.savedSelectedDirectory.id === data.id
-    ) {
-      return anyWindow.savedSelectedDirectory.directoryHandle;
-    }
-    anyWindow.savedSelectedDirectory = data;
-    return data.directoryHandle;
   }
 
   async function check() {
     state = "checking";
-    const data: SelectedDirectory | undefined = await kv.get(
-      "selectedDirectory"
-    );
-    const dir = restoreDirectoryHandle(data);
+    const dir = await getSelectedDirectory();
     if (!dir) {
       state = null;
-      return;
+    } else {
+      state = { directoryHandle: dir };
     }
-    let permission = await dir.queryPermission({ mode: "readwrite" });
-    if (permission === "prompt") {
-      try {
-        permission = await dir.requestPermission({ mode: "readwrite" });
-      } catch (error) {
-        await new Promise<void>((resolve, reject) => {
-          permissionDialog.show();
-          permissionDialog.addEventListener("before-close", () => {
-            reject(new Error("Dialog closed"));
-          });
-          permissionDialogAllowButton.addEventListener("click", () => {
-            resolve();
-            permissionDialog.close();
-          });
-        });
-        permission = await dir.requestPermission({ mode: "readwrite" });
-      }
-    }
-    if (permission !== "granted") {
-      throw new Error("Folder access permission denied");
-    }
-    state = { directoryHandle: dir };
     await recheck();
   }
 
@@ -587,19 +543,6 @@
       </ui5-button>
     </ui5-bar>
   {/if}
-
-  <ui5-dialog bind:this={permissionDialog} header-text="Permission required">
-    <ui5-label>Please allow access to file system</ui5-label>
-
-    <div slot="footer" style="padding: 0.5rem">
-      <ui5-button design="Emphasized" bind:this={permissionDialogAllowButton}>
-        Allow
-      </ui5-button>
-      <ui5-button design="Negative" on:click={permissionDialog.close()}>
-        Deny
-      </ui5-button>
-    </div>
-  </ui5-dialog>
 </main>
 
 <style>
