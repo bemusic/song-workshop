@@ -3,6 +3,7 @@
 
   import { onMount } from "svelte";
   import { getSelectedDirectory } from "./DirectorySelection";
+  import RenoteEditor from "./RenoteEditor.svelte";
   import { SongWorkshopLibs } from "./SongWorkshopLibs";
 
   export let renoteSource: string;
@@ -17,6 +18,10 @@
 
   async function check() {
     state = "checking";
+    if (!renoteSource.endsWith(".renoter")) {
+      state = { message: "File extension must be .renoter" };
+      return;
+    }
     const dir = await getSelectedDirectory();
     if (!dir) {
       state = { message: "No directory selected." };
@@ -66,9 +71,7 @@
       <ui5-messagestrip design="Negative">{state.message}</ui5-messagestrip>
     </div>
   {:else}
-    <div style="padding: 1rem;">
-      <ui5-messagestrip design="Negative">Unimplemented</ui5-messagestrip>
-    </div>
+    <RenoteEditor chart={state.chart} />
   {/if}
 </main>
 

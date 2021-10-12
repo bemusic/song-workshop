@@ -34,13 +34,14 @@ import "@ui5/webcomponents-icons/dist/synchronize";
 const searchParams = new URLSearchParams(window.location.search);
 
 if (searchParams.has("test")) {
+  document.title = "[Tests] Song Workshop";
   import("./tests");
 } else if (searchParams.has("renote")) {
+  document.title = "Renoter";
   new Renoter({
     target: document.getElementById("app"),
     props: {
       renoteSource: searchParams.get("renote"),
-      renoteTarget: searchParams.get("target"),
     },
   });
 } else {
