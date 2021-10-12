@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { BMSChart, BMSObject } from "bms";
-  import { groupBy, memoize } from "lodash";
+  import { memoize } from "lodash";
   import { onMount, onDestroy, createEventDispatcher } from "svelte";
   import RenoteRow from "./RenoteRow.svelte";
   import type { ObjectRow } from "./RenoterTypes";
@@ -65,9 +65,17 @@
         continue;
       }
       let y = getY(toBeat(o.measure, o.fraction));
+      const beatsThisMeasure = chart.timeSignatures.getBeats(o.measure);
       let row = map[y];
       if (!row) {
-        row = { y, objects: [] };
+        row = {
+          y,
+          objects: [],
+          timeKey: [
+            o.measure,
+            Math.round((o.fraction * 960) / (beatsThisMeasure / 4)),
+          ].join(":"),
+        };
         rows.push(row);
         map[y] = row;
       }
@@ -89,8 +97,12 @@
   $: objectRows = groupObjectsByY(chart.objects.allSorted());
   $: visibleObjectRows = filterVisible(viewport, objectRows);
 
+  let info = "Hover to see sound file";
+
   function onNoteHover(e: { detail: BMSObject }) {
-    dispatch("previewSound", keysounds.get(e.detail.value));
+    const keysound = keysounds.get(e.detail.value);
+    info = `${e.detail.value}: ${keysound}`;
+    dispatch("previewSound", keysound);
   }
 </script>
 
@@ -123,7 +135,9 @@
     </div>
   </div>
   <div style="flex: none; width: 256px;">
-    <ui5-messagestrip design="Negative">Unimplemented</ui5-messagestrip>
+    <ui5-messagestrip design="Information" hide-close-button
+      >{info}</ui5-messagestrip
+    >
     {viewport}
   </div>
 </div>

@@ -63,6 +63,9 @@
   });
 
   const getSample = pMemoize(async (soundFileSrc: string) => {
+    if (!soundFileSrc) {
+      return null;
+    }
     if (typeof state !== "object" || !("directoryHandle" in state)) {
       throw new Error("Not loaded");
     }
@@ -88,7 +91,8 @@
   });
 
   async function onPreviewSound(e: { detail: string }) {
-    SoundPlayer.getInstance().play(getSample(e.detail));
+    const soundFile = e.detail;
+    SoundPlayer.getInstance().play(getSample(soundFile));
   }
 </script>
 

@@ -10,11 +10,13 @@
 
 <div class="row">
   <div class="line" />
-  <div class="objectRow-text" />
+  <div class="objectRow-text">
+    {row.timeKey}
+  </div>
   {#each row.objects as object, i}
     <div
       class="obj"
-      style="transform: translateX({64 + i * 32}px)"
+      style="transform: translateX({128 + (i + 10) * 32}px)"
       on:mouseenter={() => dispatch("notemouseenter", object)}
       on:mouseleave={() => dispatch("notemouseleave", object)}
     >
@@ -39,7 +41,8 @@
   .objectRow-text {
     position: absolute;
     bottom: 0;
-    left: 100px;
+    left: 48px;
+    font-size: 12px;
   }
   .line {
     position: absolute;
