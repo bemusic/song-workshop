@@ -11,7 +11,7 @@
 <div class="row">
   <div class="line" />
   <div class="objectRow-text">
-    {row.timeKey}
+    {row.timeKey.split(":")[1]}
   </div>
   {#each row.objects as object, i}
     <div
@@ -41,8 +41,11 @@
   .objectRow-text {
     position: absolute;
     bottom: 0;
-    left: 48px;
+    left: 0;
+    width: 64px;
+    text-align: right;
     font-size: 12px;
+    color: #555;
   }
   .line {
     position: absolute;
