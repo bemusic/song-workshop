@@ -1,10 +1,24 @@
 <script lang="ts">
   import type { BMSChart, BMSObject } from "bms";
   import { groupBy, memoize } from "lodash";
-  import { onMount } from "svelte";
+  import { onMount, onDestroy, createEventDispatcher } from "svelte";
+  import RenoteRow from "./RenoteRow.svelte";
+  import type { ObjectRow } from "./RenoterTypes";
   import { SongWorkshopLibs } from "./SongWorkshopLibs";
 
-  const PX_PER_BEAT = 96;
+  const dispatch = createEventDispatcher();
+
+  const keyboardShortcuts = [
+    ["Up", "Go to next row"],
+    ["Down", "Go to previous row"],
+    ["Left", "Select previous sound group"],
+    ["Right", "Select next sound group"],
+    ["Shift+Up", "Increase note length"],
+    ["Shift+Down", "Decrease note length"],
+    ["AZSXDCFV", "Toggle note"],
+  ];
+
+  const PX_PER_BEAT = 64;
   const VIEWPORT_PADDING_PX = 192;
   const BOTTOM_PX = 32;
   export let chart: BMSChart;
@@ -34,16 +48,22 @@
   onMount(() => {
     scroller.scrollTop = canvasHeight;
     onScroll();
+    window.addEventListener("resize", onScroll);
+  });
+  onDestroy(() => {
+    window.removeEventListener("resize", onScroll);
   });
 
   function getY(beat: number) {
     return canvasHeight - BOTTOM_PX - beat * PX_PER_BEAT;
   }
-  type ObjectRow = { y: number; objects: BMSObject[] };
   function groupObjectsByY(objects: BMSObject[]) {
     let rows: ObjectRow[] = [];
     const map: Record<number, ObjectRow> = {};
     for (let o of objects) {
+      if (o.channel !== "01" && !("11" <= o.channel && o.channel <= "59")) {
+        continue;
+      }
       let y = getY(toBeat(o.measure, o.fraction));
       let row = map[y];
       if (!row) {
@@ -68,45 +88,45 @@
     .map((_, i) => ({ number: i, y: getY(toBeat(i, 0)) }));
   $: objectRows = groupObjectsByY(chart.objects.allSorted());
   $: visibleObjectRows = filterVisible(viewport, objectRows);
+
+  function onNoteHover(e: { detail: BMSObject }) {
+    dispatch("previewSound", keysounds.get(e.detail.value));
+  }
 </script>
 
-<main>
-  <div
-    style="padding: 1rem; display: flex; gap: 1rem; height: calc(100vh - 100px)"
-  >
-    <div style="flex: 1; position: relative">
+<div
+  style="padding: 1rem; display: flex; gap: 1rem; height: calc(100vh - 100px)"
+>
+  <div style="flex: 1; position: relative">
+    <div
+      style="position: absolute; inset: 0; overflow: auto;"
+      bind:this={scroller}
+      on:scroll={onScroll}
+      tabindex="0"
+    >
       <div
-        style="position: absolute; inset: 0; overflow: auto;"
-        bind:this={scroller}
-        on:scroll={onScroll}
+        style="background: #000; color: #0f0; height: {canvasHeight}px; position: relative;"
       >
-        <div
-          style="background: #000; color: #0f0; height: {canvasHeight}px; position: relative;"
-        >
-          {#each measureLines as measure (measure.number)}
-            <div class="measure" style="top: {measure.y}px">
-              <div class="measure-text">
-                #{measure.number.toString().padStart(3, "0")}
-              </div>
+        {#each measureLines as measure (measure.number)}
+          <div class="measure" style="top: {measure.y}px">
+            <div class="measure-text">
+              #{measure.number.toString().padStart(3, "0")}
             </div>
-          {/each}
-          {#each visibleObjectRows as row (row.y)}
-            <div class="objectRow" style="top: {row.y}px">
-              <div class="objectRow-line" />
-              <div class="objectRow-text">
-                n: {row.objects.length}
-              </div>
-            </div>
-          {/each}
-        </div>
+          </div>
+        {/each}
+        {#each visibleObjectRows as row (row.y)}
+          <div class="objectRow" style="top: {row.y}px">
+            <RenoteRow {row} on:notemouseenter={onNoteHover} />
+          </div>
+        {/each}
       </div>
     </div>
-    <div style="flex: none; width: 256px;">
-      <ui5-messagestrip design="Negative">Unimplemented</ui5-messagestrip>
-      {viewport}
-    </div>
   </div>
-</main>
+  <div style="flex: none; width: 256px;">
+    <ui5-messagestrip design="Negative">Unimplemented</ui5-messagestrip>
+    {viewport}
+  </div>
+</div>
 
 <style>
   .measure {

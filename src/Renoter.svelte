@@ -1,9 +1,12 @@
 <script lang="ts">
   import type { BMSChart } from "bms";
+  import { once } from "lodash";
+  import pMemoize from "p-memoize";
 
   import { onMount } from "svelte";
   import { getSelectedDirectory } from "./DirectorySelection";
   import RenoteEditor from "./RenoteEditor.svelte";
+  import { SoundPlayer } from "./RenoterSound";
   import { SongWorkshopLibs } from "./SongWorkshopLibs";
 
   export let renoteSource: string;
@@ -58,6 +61,35 @@
   onMount(() => {
     check();
   });
+
+  const getSample = pMemoize(async (soundFileSrc: string) => {
+    if (typeof state !== "object" || !("directoryHandle" in state)) {
+      throw new Error("Not loaded");
+    }
+    const soundFilesToTry = [
+      soundFileSrc,
+      soundFileSrc.replace(/\.\w\w\w$/, ".wav"),
+      soundFileSrc.replace(/\.\w\w\w$/, ".ogg"),
+      soundFileSrc.replace(/\.\w\w\w$/, ".mp3"),
+    ];
+    for (const file of soundFilesToTry) {
+      try {
+        const soundFileHandle = await state.directoryHandle.getFileHandle(file);
+        const soundFile = await soundFileHandle.getFile();
+        const soundData = await soundFile.arrayBuffer();
+        const ctx = SoundPlayer.getInstance().context;
+        const buffer = await ctx.decodeAudioData(soundData);
+        return buffer;
+      } catch (error) {
+        console.log(error);
+      }
+    }
+    throw new Error("No file");
+  });
+
+  async function onPreviewSound(e: { detail: string }) {
+    SoundPlayer.getInstance().play(getSample(e.detail));
+  }
 </script>
 
 <main>
@@ -71,7 +103,7 @@
       <ui5-messagestrip design="Negative">{state.message}</ui5-messagestrip>
     </div>
   {:else}
-    <RenoteEditor chart={state.chart} />
+    <RenoteEditor chart={state.chart} on:previewSound={onPreviewSound} />
   {/if}
 </main>
 
