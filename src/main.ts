@@ -35,7 +35,7 @@ const searchParams = new URLSearchParams(window.location.search);
 
 if (searchParams.has("test")) {
   document.title = "[Tests] Song Workshop";
-  import("./tests");
+  import("./tests").then((t) => t.main());
 } else if (searchParams.has("renote")) {
   document.title = "Renoter";
   new Renoter({
