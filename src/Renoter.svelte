@@ -7,6 +7,7 @@
   import { getSelectedDirectory } from "./DirectorySelection";
   import RenoteEditor from "./RenoteEditor.svelte";
   import { SoundPlayer } from "./RenoterSound";
+  import type { RenoteData } from "./RenoterTypes";
   import { SongWorkshopLibs } from "./SongWorkshopLibs";
 
   export let renoteSource: string;
@@ -14,6 +15,7 @@
     | "checking"
     | { message: string }
     | {
+        data: RenoteData;
         directoryHandle: FileSystemDirectoryHandle;
         fileHandle: FileSystemFileHandle;
         chart: BMSChart;
@@ -21,17 +23,18 @@
 
   async function check() {
     state = "checking";
-    if (!renoteSource.endsWith(".renoter")) {
-      state = { message: "File extension must be .renoter" };
-      return;
-    }
     const dir = await getSelectedDirectory();
     if (!dir) {
       state = { message: "No directory selected." };
       return;
     }
     try {
-      const chartHandle = await dir.getFileHandle(renoteSource);
+      const renoteHandle = await dir.getFileHandle(
+        renoteSource + ".renote.json"
+      );
+      const renoteFile = await renoteHandle.getFile();
+      const renoteData: RenoteData = JSON.parse(await renoteFile.text());
+      const chartHandle = await dir.getFileHandle(renoteData.source);
       const chartFile = await chartHandle.getFile();
       const chartData = await chartFile.arrayBuffer();
       const chartText = await new Promise<string>((resolve, reject) => {
@@ -51,6 +54,7 @@
       state = {
         directoryHandle: dir,
         fileHandle: chartHandle,
+        data: renoteData,
         chart,
       };
     } catch (error) {
