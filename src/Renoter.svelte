@@ -6,6 +6,7 @@
   import { onMount } from "svelte";
   import { getSelectedDirectory } from "./DirectorySelection";
   import RenoteEditor from "./RenoteEditor.svelte";
+  import { renoteBms } from "./RenoterCore";
   import { SoundPlayer } from "./RenoterSound";
   import type { RenoteData } from "./RenoterTypes";
   import { SongWorkshopLibs } from "./SongWorkshopLibs";
@@ -20,6 +21,7 @@
         renoteHandle: FileSystemFileHandle;
         fileHandle: FileSystemFileHandle;
         chart: BMSChart;
+        chartData: ArrayBuffer;
       } = "checking";
 
   async function check() {
@@ -58,6 +60,7 @@
         fileHandle: chartHandle,
         data: renoteData,
         chart,
+        chartData,
       };
     } catch (error) {
       state = { message: error.message };
@@ -110,19 +113,26 @@
       throw new Error("Not loaded");
     }
     const handle = state.renoteHandle;
-    const writable = await handle.createWritable();
-    await writable.write(
-      JSON.stringify(
-        {
-          ...state.data,
-          newNotes: e.detail.newNotes,
-          groups: e.detail.groups,
-        },
-        null,
-        2
-      )
+    const newData: RenoteData = {
+      ...state.data,
+      newNotes: e.detail.newNotes,
+      groups: e.detail.groups,
+    };
+    {
+      const writable = await handle.createWritable();
+      await writable.write(JSON.stringify(newData, null, 2));
+      await writable.close();
+    }
+    const bmsHandle = await state.directoryHandle.getFileHandle(
+      renoteSource + "_renote.bms",
+      { create: true }
     );
-    await writable.close();
+    {
+      const writable = await bmsHandle.createWritable();
+      const buffer = await renoteBms(new Uint8Array(state.chartData), newData);
+      await writable.write(buffer);
+      await writable.close();
+    }
     console.log("Done");
   }
 </script>
