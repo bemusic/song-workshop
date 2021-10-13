@@ -111,7 +111,11 @@
       <ui5-messagestrip design="Negative">{state.message}</ui5-messagestrip>
     </div>
   {:else}
-    <RenoteEditor chart={state.chart} on:previewSound={onPreviewSound} />
+    <RenoteEditor
+      data={state.data}
+      chart={state.chart}
+      on:previewSound={onPreviewSound}
+    />
   {/if}
 </main>
 

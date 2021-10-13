@@ -15,5 +15,7 @@ export type RenoteData = {
       };
     };
   };
-  groupPatterns?: string[];
+  groups?: {
+    patterns: string[];
+  }[];
 };

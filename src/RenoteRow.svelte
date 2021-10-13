@@ -1,9 +1,11 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
+  import type { RenoterLayout } from "./RenoterLayout";
 
   import type { ObjectRow } from "./RenoterTypes";
 
   export let row: ObjectRow;
+  export let layout: RenoterLayout;
 
   const dispatch = createEventDispatcher();
 </script>
@@ -16,7 +18,7 @@
   {#each row.objects as object, i}
     <div
       class="obj"
-      style="transform: translateX({128 + (i + 10) * 32}px)"
+      style="transform: translateX({layout.getX(row, object)}px)"
       on:mouseenter={() => dispatch("notemouseenter", object)}
       on:mouseleave={() => dispatch("notemouseleave", object)}
     >

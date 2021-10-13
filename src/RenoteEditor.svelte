@@ -2,8 +2,9 @@
   import type { BMSChart, BMSObject } from "bms";
   import { memoize } from "lodash";
   import { onMount, onDestroy, createEventDispatcher } from "svelte";
+  import { calculateLayout } from "./RenoterLayout";
   import RenoteRow from "./RenoteRow.svelte";
-  import type { ObjectRow } from "./RenoterTypes";
+  import type { ObjectRow, RenoteData } from "./RenoterTypes";
   import { SongWorkshopLibs } from "./SongWorkshopLibs";
 
   const dispatch = createEventDispatcher();
@@ -21,7 +22,9 @@
   const PX_PER_BEAT = 64;
   const VIEWPORT_PADDING_PX = 192;
   const BOTTOM_PX = 32;
+
   export let chart: BMSChart;
+  export let data: RenoteData;
 
   let scroller: HTMLDivElement;
 
@@ -82,6 +85,9 @@
       row.objects.push(o);
     }
     rows.sort((a, b) => a.y - b.y);
+    for (const row of rows) {
+      row.objects.sort((a, b) => (a.value < b.value ? -1 : 1));
+    }
     return rows;
   }
   function filterVisible<T extends { y: number }>(
@@ -90,11 +96,11 @@
   ): T[] {
     return things.filter((t) => t.y >= range[0] && t.y <= range[1]);
   }
-
   $: measureLines = new Array(maxMeasure)
     .fill(0)
     .map((_, i) => ({ number: i, y: getY(toBeat(i, 0)) }));
   $: objectRows = groupObjectsByY(chart.objects.allSorted());
+  $: layout = calculateLayout(objectRows, data.groups || []);
   $: visibleObjectRows = filterVisible(viewport, objectRows);
 
   let info = "Hover to see sound file";
@@ -107,7 +113,7 @@
 </script>
 
 <div
-  style="padding: 1rem; display: flex; gap: 1rem; height: calc(100vh - 100px)"
+  style="padding: 1rem; display: flex; gap: 1rem; height: calc(100vh - 80px)"
 >
   <div style="flex: 1; position: relative">
     <div
@@ -128,17 +134,31 @@
         {/each}
         {#each visibleObjectRows as row (row.y)}
           <div class="objectRow" style="top: {row.y}px">
-            <RenoteRow {row} on:notemouseenter={onNoteHover} />
+            <RenoteRow {row} {layout} on:notemouseenter={onNoteHover} />
           </div>
         {/each}
       </div>
     </div>
   </div>
-  <div style="flex: none; width: 256px;">
-    <ui5-messagestrip design="Information" hide-close-button
-      >{info}</ui5-messagestrip
-    >
-    {viewport}
+  <div
+    style="flex: none; width: 256px; position: relative;"
+    class="ui5-content-density-compact"
+  >
+    <div style="position: absolute; inset: 0; overflow: auto;">
+      <ui5-messagestrip design="Information" hide-close-button
+        >{info}</ui5-messagestrip
+      >
+      <ui5-tree mode="SingleSelect">
+        {#each data.groups || [] as group, i}
+          <ui5-tree-item expanded text="Group {i + 1}">
+            {#each group.patterns as pattern}
+              <ui5-tree-item text={pattern} />
+            {/each}
+          </ui5-tree-item>
+        {/each}
+      </ui5-tree>
+      {viewport}
+    </div>
   </div>
 </div>
 

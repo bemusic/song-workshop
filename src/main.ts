@@ -18,6 +18,8 @@ import "@ui5/webcomponents/dist/TableColumn";
 import "@ui5/webcomponents/dist/TableRow";
 import "@ui5/webcomponents/dist/TableCell";
 import "@ui5/webcomponents/dist/TextArea";
+import "@ui5/webcomponents/dist/Tree";
+import "@ui5/webcomponents/dist/TreeItem";
 import "@ui5/webcomponents-fiori/dist/Bar";
 import "@ui5/webcomponents-fiori/dist/ShellBar";
 import "@ui5/webcomponents-fiori/dist/illustrations/NoData";
