@@ -17,6 +17,7 @@
     | {
         data: RenoteData;
         directoryHandle: FileSystemDirectoryHandle;
+        renoteHandle: FileSystemFileHandle;
         fileHandle: FileSystemFileHandle;
         chart: BMSChart;
       } = "checking";
@@ -53,6 +54,7 @@
       console.log(chart);
       state = {
         directoryHandle: dir,
+        renoteHandle,
         fileHandle: chartHandle,
         data: renoteData,
         chart,
@@ -98,6 +100,31 @@
     const soundFile = e.detail;
     SoundPlayer.getInstance().play(getSample(soundFile));
   }
+  async function onSave(e: {
+    detail: {
+      newNotes: RenoteData["newNotes"];
+      groups: RenoteData["groups"];
+    };
+  }) {
+    if (typeof state !== "object" || !("renoteHandle" in state)) {
+      throw new Error("Not loaded");
+    }
+    const handle = state.renoteHandle;
+    const writable = await handle.createWritable();
+    await writable.write(
+      JSON.stringify(
+        {
+          ...state.data,
+          newNotes: e.detail.newNotes,
+          groups: e.detail.groups,
+        },
+        null,
+        2
+      )
+    );
+    await writable.close();
+    console.log("Done");
+  }
 </script>
 
 <main>
@@ -115,6 +142,7 @@
       data={state.data}
       chart={state.chart}
       on:previewSound={onPreviewSound}
+      on:save={onSave}
     />
   {/if}
 </main>

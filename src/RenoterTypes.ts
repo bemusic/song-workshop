@@ -4,9 +4,10 @@ export type ObjectRow = { y: number; objects: BMSObject[]; timeKey: string };
 
 export type RenoteData = {
   source: string;
-  overrides?: {
+  newNotes?: {
     /** timeKey — '<measure>:<offset>' where 1 quarter note = 240 */
     [timeKey: string]: {
+      /** Key is 'K1..K7' or 'SC' */
       [key: string]: {
         /** Keysound ID to use */
         value: string;

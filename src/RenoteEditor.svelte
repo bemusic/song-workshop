@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { BMSChart, BMSObject } from "bms";
-  import { memoize } from "lodash";
+  import { memoize, sortedIndexBy } from "lodash";
   import { onMount, onDestroy, createEventDispatcher } from "svelte";
   import { calculateLayout } from "./RenoterLayout";
   import RenoteRow from "./RenoteRow.svelte";
@@ -26,6 +26,8 @@
   export let chart: BMSChart;
   export let data: RenoteData;
 
+  let newNotes = data.newNotes || {};
+  let groups = data.groups || [];
   let scroller: HTMLDivElement;
 
   const toBeat = memoize(
@@ -100,31 +102,185 @@
     .fill(0)
     .map((_, i) => ({ number: i, y: getY(toBeat(i, 0)) }));
   $: objectRows = groupObjectsByY(chart.objects.allSorted());
-  $: layout = calculateLayout(objectRows, data.groups || []);
+  $: layout = calculateLayout(objectRows, groups, keysounds);
   $: visibleObjectRows = filterVisible(viewport, objectRows);
 
   let info = "Hover to see sound file";
+  let selectedTimeKey = "";
+  let selectedGroupIndex = 0;
 
   function onNoteHover(e: { detail: BMSObject }) {
     const keysound = keysounds.get(e.detail.value);
     info = `${e.detail.value}: ${keysound}`;
     dispatch("previewSound", keysound);
   }
+
+  function onMouseMove(e: MouseEvent) {
+    const rect = scroller.getBoundingClientRect();
+    if (e.shiftKey) {
+      const x = e.clientX - rect.left + scroller.scrollLeft;
+      const y = e.clientY - rect.top + scroller.scrollTop;
+      const rowIndex = sortedIndexBy<{ y: number }>(
+        objectRows,
+        { y: y },
+        (r) => r.y
+      );
+      if (!objectRows[rowIndex]) return;
+      selectedTimeKey = objectRows[rowIndex].timeKey;
+    }
+  }
+
+  function onKeyDown(e: KeyboardEvent) {
+    if (e.key === "s" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      console.log("Save!!!");
+      dispatch("save", {
+        newNotes,
+        groups,
+      });
+      return;
+    }
+    switch (e.key) {
+      case "ArrowLeft": {
+        e.preventDefault();
+        selectedGroupIndex = layout.getPreviousGroupIndex(selectedGroupIndex);
+        break;
+      }
+      case "ArrowRight": {
+        e.preventDefault();
+        selectedGroupIndex = layout.getNextGroupIndex(selectedGroupIndex);
+        break;
+      }
+      case "ArrowUp": {
+        e.preventDefault();
+        goToRow(layout.getRowAbove(selectedTimeKey, selectedGroupIndex));
+        break;
+      }
+      case "ArrowDown": {
+        e.preventDefault();
+        goToRow(layout.getRowBelow(selectedTimeKey, selectedGroupIndex));
+        break;
+      }
+      case "a": {
+        e.preventDefault();
+        toggleChannel("SC");
+        break;
+      }
+      case "z": {
+        e.preventDefault();
+        toggleChannel("K1");
+        break;
+      }
+      case "s": {
+        e.preventDefault();
+        toggleChannel("K2");
+        break;
+      }
+      case "x": {
+        e.preventDefault();
+        toggleChannel("K3");
+        break;
+      }
+      case "d": {
+        e.preventDefault();
+        toggleChannel("K4");
+        break;
+      }
+      case "c": {
+        e.preventDefault();
+        toggleChannel("K5");
+        break;
+      }
+      case "f": {
+        e.preventDefault();
+        toggleChannel("K6");
+        break;
+      }
+      case "v": {
+        e.preventDefault();
+        toggleChannel("K7");
+        break;
+      }
+      default: {
+        console.warn("Unhandled key", e.key);
+      }
+    }
+  }
+  function toggleChannel(channel: string) {
+    const row = layout.getRowByTimeKey(selectedTimeKey);
+    if (!row) {
+      return;
+    }
+
+    const newNotesOnThisRow = newNotes[row.timeKey] || {};
+    const current = newNotesOnThisRow[channel];
+    const valuesUsedInOtherChannels = new Set(
+      Object.entries(newNotesOnThisRow)
+        .filter(([k]) => k !== channel)
+        .map(([k, v]) => v.value)
+    );
+    const usableObjects = row.objects
+      .filter((o) => layout.getGroupIndex(o) === selectedGroupIndex)
+      .filter((o) => !valuesUsedInOtherChannels.has(o.value));
+    const nextNewNotesOnThisRow = { ...newNotesOnThisRow };
+    if (!current && usableObjects.length) {
+      nextNewNotesOnThisRow[channel] = { value: usableObjects[0].value };
+    } else if (current) {
+      const index = usableObjects.findIndex((o) => o.value === current.value);
+      const nextItem = usableObjects[index + 1];
+      if (nextItem) {
+        nextNewNotesOnThisRow[channel] = { value: nextItem.value };
+      } else {
+        delete nextNewNotesOnThisRow[channel];
+      }
+    }
+    if (nextNewNotesOnThisRow[channel]) {
+      const keysound = keysounds.get(nextNewNotesOnThisRow[channel].value);
+      dispatch("previewSound", keysound);
+    }
+    newNotes[row.timeKey] = nextNewNotesOnThisRow;
+  }
+  function goToRow(row: ObjectRow | undefined) {
+    if (!row) {
+      return;
+    }
+    const previousY = layout.getRowByTimeKey(selectedTimeKey)?.y;
+    const nextY = row.y;
+    if (previousY != null) {
+      scroller.scrollTop += nextY - previousY;
+    }
+    if (
+      !(
+        scroller.scrollTop <= nextY &&
+        nextY <= scroller.scrollTop + scroller.clientHeight
+      )
+    ) {
+      scroller.scrollTop = nextY - scroller.clientHeight * 0.75;
+    }
+    selectedTimeKey = row.timeKey;
+  }
 </script>
 
 <div
   style="padding: 1rem; display: flex; gap: 1rem; height: calc(100vh - 80px)"
 >
-  <div style="flex: 1; position: relative">
+  <div style="flex: 1; position: relative; background: #000; color: #0f0">
     <div
       style="position: absolute; inset: 0; overflow: auto;"
       bind:this={scroller}
       on:scroll={onScroll}
+      on:mousemove={onMouseMove}
+      on:keydown={onKeyDown}
       tabindex="0"
     >
-      <div
-        style="background: #000; color: #0f0; height: {canvasHeight}px; position: relative;"
-      >
+      <div style="height: {canvasHeight}px; position: relative;">
+        {#each layout.groupColumns as { x, width }, index}
+          <div
+            class="col"
+            class:is-selected={selectedGroupIndex === index}
+            style="left: {x}px; width: {width}px;"
+          />
+        {/each}
         {#each measureLines as measure (measure.number)}
           <div class="measure" style="top: {measure.y}px">
             <div class="measure-text">
@@ -134,7 +290,14 @@
         {/each}
         {#each visibleObjectRows as row (row.y)}
           <div class="objectRow" style="top: {row.y}px">
-            <RenoteRow {row} {layout} on:notemouseenter={onNoteHover} />
+            <RenoteRow
+              selected={row.timeKey === selectedTimeKey}
+              {row}
+              {layout}
+              selectedColumnIndex={selectedGroupIndex}
+              newNotes={newNotes[row.timeKey]}
+              on:notemouseenter={onNoteHover}
+            />
           </div>
         {/each}
       </div>
@@ -149,7 +312,7 @@
         >{info}</ui5-messagestrip
       >
       <ui5-tree mode="SingleSelect">
-        {#each data.groups || [] as group, i}
+        {#each groups as group, i}
           <ui5-tree-item expanded text="Group {i + 1}">
             {#each group.patterns as pattern}
               <ui5-tree-item text={pattern} />
@@ -183,21 +346,13 @@
     right: 0;
     height: 0px;
   }
-  .objectRow-text {
+  .col {
     position: absolute;
+    top: 0;
     bottom: 0;
-    left: 100px;
+    background: #111;
   }
-  .objectRow-line {
-    position: absolute;
-    height: 1px;
-    left: 0;
-    bottom: 0;
-    right: 0;
-    background: #0f0;
-    opacity: 0;
-  }
-  .objectRow:hover .objectRow-line {
-    opacity: 1;
+  .col.is-selected {
+    background: #222;
   }
 </style>
