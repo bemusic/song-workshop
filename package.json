@@ -32,6 +32,7 @@
     "@ui5/webcomponents": "^1.0.0-rc.15",
     "@ui5/webcomponents-fiori": "^1.0.0-rc.15",
     "@ui5/webcomponents-icons": "^1.0.0-rc.15",
+    "axios": "^0.23.0",
     "bemuse-indexer": "^49.0.0",
     "bemuse-notechart": "^49.0.0",
     "bms": "^49.0.0",

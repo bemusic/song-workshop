@@ -4,9 +4,15 @@
   <ui5-product-switch>
     <ui5-product-switch-item
       title-text="Custom Song"
-      subtitle-text="Prepare song for Bemuse"
+      subtitle-text="Prepare song data"
       icon="factory"
       on:click={() => (location.href = "?app=song")}
+    />
+    <ui5-product-switch-item
+      title-text="Server Manager"
+      subtitle-text="Prepare server file"
+      icon="shelf"
+      on:click={() => (location.href = "?app=server-manager")}
     />
     <ui5-product-switch-item
       title-text="Tests"

@@ -1,5 +1,6 @@
 import App from "./App.svelte";
 import Renoter from "./Renoter.svelte";
+import ServerManager from "./ServerManager.svelte";
 import ToolSelector from "./ToolSelector.svelte";
 
 import "@ui5/webcomponents/dist/Button";
@@ -44,6 +45,10 @@ if (searchParams.has("test")) {
   });
 } else if (searchParams.get("app") === "song") {
   new App({
+    target: document.getElementById("app"),
+  });
+} else if (searchParams.get("app") === "server-manager") {
+  new ServerManager({
     target: document.getElementById("app"),
   });
 } else {
