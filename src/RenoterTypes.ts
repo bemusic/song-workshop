@@ -4,8 +4,9 @@ export type ObjectRow = { y: number; objects: BMSObject[]; timeKey: string };
 
 export type RenoteData = {
   source: string;
+  suffix?: string;
   replace?: Record<string, string>;
-  addSubartist?: string;
+  add?: string[];
   newNotes?: {
     /** timeKey — '<measure>:<offset>' where 1 quarter note = 240 */
     [timeKey: string]: {

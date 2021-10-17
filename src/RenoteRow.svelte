@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { entries } from "lodash";
+  import type { BMSObject } from "bms";
+
   import { createEventDispatcher } from "svelte";
-  import type { RenoterLayout } from "./RenoterLayout";
+  import { PX_PER_BEAT, RenoterLayout } from "./RenoterLayout";
 
   import type { ObjectRow, RenoteData } from "./RenoterTypes";
 
@@ -22,18 +23,70 @@
         {
           channel,
           object: matchingObject,
+          length: info.length || 0,
         },
       ];
     }
   );
+
+  let dragging:
+    | {
+        startY: number;
+        startLength: number;
+        channel: string;
+      }
+    | undefined;
+
+  function onMouseDown(
+    e: MouseEvent,
+    channel: string,
+    object: BMSObject,
+    startLength: number
+  ) {
+    if (e.button !== 0) {
+      return;
+    }
+    dragging = {
+      startY: e.clientY,
+      startLength,
+      channel,
+    };
+    e.preventDefault();
+  }
+
+  function onMouseMove(e: MouseEvent) {
+    if (!dragging) {
+      return;
+    }
+    const delta = e.clientY - dragging.startY;
+    const newLength = Math.max(
+      0,
+      dragging.startLength - Math.round((delta / PX_PER_BEAT) * 4) * (240 / 4)
+    );
+    dispatch("setlength", {
+      row: row,
+      channel: dragging.channel,
+      length: newLength,
+    });
+    e.preventDefault();
+  }
+  function onMouseUp(e: MouseEvent) {
+    if (!dragging) {
+      return;
+    }
+    dragging = undefined;
+    e.preventDefault();
+  }
 </script>
+
+<svelte:window on:mousemove={onMouseMove} on:mouseup={onMouseUp} />
 
 <div class="row" class:is-selected={selected}>
   <div class="line" />
   <div class="objectRow-text">
     {row.timeKey.split(":")[1]}
   </div>
-  {#each notedObjects as { object, channel } (channel)}
+  {#each notedObjects as { object, channel, length } (channel)}
     <div
       class="obj"
       data-channel={channel}
@@ -42,10 +95,17 @@
       )}px);  --group-color: {layout.getGroupColor(
         layout.getGroupIndex(object)
       )}"
+      on:mousedown={(e) => onMouseDown(e, channel, object, length)}
       on:mouseenter={() => dispatch("notemouseenter", object)}
       on:mouseleave={() => dispatch("notemouseleave", object)}
     >
       {object.value}
+
+      {#if length > 0}
+        <div class="ln" style="--ln-length: {(length * PX_PER_BEAT) / 240}px">
+          {object.value}
+        </div>
+      {/if}
     </div>
   {/each}
   {#each row.objects as object, i}
@@ -68,6 +128,7 @@
 
 <style>
   .obj {
+    --note-background: #444;
     position: absolute;
     bottom: 0;
     left: 0;
@@ -76,26 +137,37 @@
     line-height: 16px;
     text-align: center;
     font-size: 12px;
-    background: #444;
     box-shadow: inset 1px 1px 0 #fff3, inset -1px -1px 0 #0006;
+    background: var(--note-background);
     color: var(--group-color);
   }
   .obj[data-channel="K1"],
   .obj[data-channel="K3"],
   .obj[data-channel="K5"],
   .obj[data-channel="K7"] {
-    background: #666;
+    --note-background: #666;
   }
   .obj[data-channel="K2"],
   .obj[data-channel="K6"] {
-    background: #448;
+    --note-background: #448;
   }
   .obj[data-channel="SC"] {
-    background: #844;
+    --note-background: #844;
   }
   .obj[data-channel="K4"] {
-    background: #484;
+    --note-background: #484;
   }
+
+  .ln {
+    position: absolute;
+    bottom: 15px;
+    height: calc(var(--ln-length) + 1px);
+    left: 1px;
+    right: 1px;
+    background: var(--note-background);
+    box-shadow: inset 1px 1px 0 #fff3, inset -1px 0px 0 #0006;
+  }
+
   .objectRow-text {
     position: absolute;
     bottom: 0;

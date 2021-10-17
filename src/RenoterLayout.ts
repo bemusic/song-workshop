@@ -4,6 +4,7 @@ import { memoize } from "lodash";
 import minimatch from "minimatch";
 import chroma from "chroma-js";
 
+export const PX_PER_BEAT = 64;
 const channels = ["SC", "K1", "K2", "K3", "K4", "K5", "K6", "K7"];
 
 export interface RenoterLayout {

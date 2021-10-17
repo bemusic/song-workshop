@@ -2,7 +2,7 @@
   import type { BMSChart, BMSObject } from "bms";
   import { memoize, sortedIndexBy } from "lodash";
   import { onMount, onDestroy, createEventDispatcher } from "svelte";
-  import { calculateLayout } from "./RenoterLayout";
+  import { calculateLayout, PX_PER_BEAT } from "./RenoterLayout";
   import RenoteRow from "./RenoteRow.svelte";
   import type { ObjectRow, RenoteData } from "./RenoterTypes";
   import { SongWorkshopLibs } from "./SongWorkshopLibs";
@@ -19,7 +19,6 @@
     ["AZSXDCFV", "Toggle note"],
   ];
 
-  const PX_PER_BEAT = 64;
   const VIEWPORT_PADDING_PX = 192;
   const BOTTOM_PX = 32;
 
@@ -117,7 +116,7 @@
 
   function onMouseMove(e: MouseEvent) {
     const rect = scroller.getBoundingClientRect();
-    if (e.shiftKey) {
+    if (true || e.shiftKey) {
       const x = e.clientX - rect.left + scroller.scrollLeft;
       const y = e.clientY - rect.top + scroller.scrollTop;
       const rowIndex = sortedIndexBy<{ y: number }>(
@@ -125,8 +124,18 @@
         { y: y },
         (r) => r.y
       );
-      if (!objectRows[rowIndex]) return;
-      selectedTimeKey = objectRows[rowIndex].timeKey;
+      if (objectRows[rowIndex]) {
+        selectedTimeKey = objectRows[rowIndex].timeKey;
+      }
+      const groupIndex =
+        sortedIndexBy<{ x: number }>(
+          layout.groupColumns,
+          { x: x },
+          (c) => c.x
+        ) - 1;
+      if (layout.groupColumns[groupIndex]) {
+        selectedGroupIndex = groupIndex;
+      }
     }
   }
 
@@ -259,6 +268,21 @@
     }
     selectedTimeKey = row.timeKey;
   }
+  function onSetLength(e: {
+    detail: {
+      row: ObjectRow;
+      channel: string;
+      length: number;
+    };
+  }) {
+    const { row, channel, length } = e.detail;
+    if (newNotes[row.timeKey] && newNotes[row.timeKey][channel]) {
+      newNotes[row.timeKey] = {
+        ...newNotes[row.timeKey],
+        [channel]: { ...newNotes[row.timeKey][channel], length },
+      };
+    }
+  }
 </script>
 
 <div
@@ -297,6 +321,7 @@
               selectedColumnIndex={selectedGroupIndex}
               newNotes={newNotes[row.timeKey]}
               on:notemouseenter={onNoteHover}
+              on:setlength={onSetLength}
             />
           </div>
         {/each}

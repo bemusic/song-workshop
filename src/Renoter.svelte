@@ -124,7 +124,7 @@
       await writable.close();
     }
     const bmsHandle = await state.directoryHandle.getFileHandle(
-      renoteSource + "_renote.bms",
+      renoteSource + "_renote" + (newData.suffix || ".bms"),
       { create: true }
     );
     {
@@ -133,7 +133,7 @@
       await writable.write(buffer);
       await writable.close();
     }
-    console.log("Done");
+    alert("Done");
   }
 </script>
 

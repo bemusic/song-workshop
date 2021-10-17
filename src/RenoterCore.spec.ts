@@ -40,6 +40,38 @@ describe("renoteBms", () => {
       ["#00102:0.5", "#00101:0100", "#00111:0002"]
     );
   });
+  it("supports long notes", async () => {
+    await check(
+      ["#00115:01"],
+      {
+        newNotes: {
+          "1:0": {
+            K1: { value: "01", length: 240 },
+          },
+        },
+      },
+      ["#00101:00", "#LNTYPE 1", "#00151:01010000"]
+    );
+  });
+  it("supports long overflow to next measure", async () => {
+    await check(
+      ["#00102:0.125", "#00115:01"],
+      {
+        newNotes: {
+          "1:0": {
+            K1: { value: "01", length: 240 },
+          },
+        },
+      },
+      [
+        "#00102:0.125",
+        "#00101:00",
+        "#LNTYPE 1",
+        "#00151:01",
+        "#00251:0001000000000000",
+      ]
+    );
+  });
 });
 
 async function check(

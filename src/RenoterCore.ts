@@ -1,7 +1,7 @@
 import { keyBy, memoize, times } from "lodash";
 import type { RenoteData } from "./RenoterTypes";
 
-type RenoteInput = Pick<RenoteData, "newNotes" | "replace" | "addSubartist">;
+type RenoteInput = Pick<RenoteData, "newNotes" | "replace" | "add">;
 
 export async function renoteBms(
   bms: Uint8Array,
@@ -21,7 +21,9 @@ export async function renoteBms(
       bmsLinesByMeasure(bmsLine.measure).push(bmsLine);
     } else {
       const match = decoded.match(/^#(\w+)\s/);
-      if (match && data.replace?.[match[1]]) {
+      if (match && ["LNTYPE", "LNOBJ"].includes(match[1].toUpperCase())) {
+        // Skip
+      } else if (match && data.replace?.[match[1]]) {
         output.push(
           new RawLine(
             new TextEncoder().encode(match[0] + data.replace[match[1]])
@@ -32,6 +34,7 @@ export async function renoteBms(
       }
     }
   }
+  let lnUsed = false;
 
   // Make existing channels autokeysounds
   for (const line of bmsLines) {
@@ -63,12 +66,33 @@ export async function renoteBms(
           const sourceTick = Math.round((i * measureSize) / objects.length);
           if (sourceTick === tick && sourceValue === value) {
             const targetChannel = targetChannelOf[channel];
-            newNotesWriter.addNote(measure, tick, targetChannel, value);
+            if (length > 0) {
+              lnUsed = true;
+              const targetLnChannel = targetChannel.replace(/^1/, "5");
+              newNotesWriter.addNote(measure, tick, targetLnChannel, value);
+              let endMeasure = measure;
+              let endTick = tick + length;
+              while (endTick >= timeSignatureByMeasure(endMeasure).size) {
+                endTick -= timeSignatureByMeasure(endMeasure).size;
+                endMeasure++;
+              }
+              newNotesWriter.addNote(
+                endMeasure,
+                endTick,
+                targetLnChannel,
+                value
+              );
+            } else {
+              newNotesWriter.addNote(measure, tick, targetChannel, value);
+            }
             objects[i] = "00";
           }
         }
       }
     }
+  }
+  if (lnUsed) {
+    output.push(new RawLine(new TextEncoder().encode("#LNTYPE 1")));
   }
   for (const addedLine of newNotesWriter.getLines()) {
     const measureSize = timeSignatureByMeasure(addedLine.measure).size;
@@ -76,10 +100,8 @@ export async function renoteBms(
   }
 
   // Add subartist
-  if (data.addSubartist) {
-    output.push(
-      new RawLine(new TextEncoder().encode(`#SUBARTIST ${data.addSubartist}`))
-    );
+  for (const line of data.add || []) {
+    output.push(new RawLine(new TextEncoder().encode(line)));
   }
 
   // Output
