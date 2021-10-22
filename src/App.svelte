@@ -9,6 +9,7 @@
     setSelectedDirectory,
     unsetSelectedDirectory,
   } from "./DirectorySelection";
+  import ImagePreview from "./ImagePreview.svelte";
   import MetadataEditor from "./MetadataEditor.svelte";
   import {
     getSongFileHandleFromDirectory,
@@ -18,6 +19,7 @@
   import { createPreviewForDirectory } from "./SongPreview";
   import { renderChart, renderSongInDirectory } from "./SongRender";
   import type { SoundAssetsMetadata } from "./types";
+  import VideoSynchronizer from "./VideoSynchronizer.svelte";
 
   let state:
     | "checking"
@@ -136,6 +138,68 @@
       );
     } finally {
       creatingPreview = false;
+      recheck();
+    }
+  }
+
+  async function setVideoOffset(offset: number) {
+    if (typeof state !== "object") {
+      throw new Error("No directory selected");
+    }
+    await updateSongFile(state.directoryHandle, (song) => ({
+      ...song,
+      video_offset: offset,
+    }));
+    recheck();
+  }
+
+  let scanningVisualFiles = false;
+  async function scanVisualFiles() {
+    scanningVisualFiles = true;
+    try {
+      if (typeof state !== "object") {
+        throw new Error("No directory selected");
+      }
+
+      const dir = state.directoryHandle;
+      const bemuseDataDir = await state.directoryHandle.getDirectoryHandle(
+        "bemuse-data"
+      );
+      const scan = async (paths: string[]): Promise<string | undefined> => {
+        // Return the first file that exists.
+        for (const path of paths) {
+          try {
+            const handle = await bemuseDataDir.getFileHandle(path);
+            if (handle) {
+              return path;
+            }
+          } catch (e) {}
+        }
+      };
+
+      const backImageFile = await scan(["back_image.jpg", "back_image.png"]);
+      const eyecatchImageFile = await scan([
+        "eyecatch_image.jpg",
+        "eyecatch_image.png",
+      ]);
+      const bgaFile = await scan(["bga.webm", "bga.mp4"]);
+      console.log({
+        backImageFile,
+        eyecatchImageFile,
+        bgaFile,
+      });
+      await updateSongFile(state.directoryHandle, (song) => {
+        const toUrl = (file: string | undefined) =>
+          file ? `bemuse-data/${file}` : undefined;
+        return {
+          ...song,
+          back_image_url: toUrl(backImageFile),
+          eyecatch_image_url: toUrl(eyecatchImageFile),
+          video_url: toUrl(bgaFile),
+        };
+      });
+    } finally {
+      scanningVisualFiles = false;
       recheck();
     }
   }
@@ -531,6 +595,77 @@
           <MetadataEditor songJson={songMeta} onSave={saveMetadata} />
         {:else}
           <ui5-label> Please scan charts first. </ui5-label>
+        {/if}
+      </ui5-tab>
+
+      <ui5-tab text="Visuals" icon="attachment-video" style="padding: 1rem">
+        <ui5-card>
+          <ui5-card-header
+            slot="header"
+            title-text="Scan image and BGA files"
+          />
+          <div style="padding: 1rem">
+            <ui5-button
+              on:click={scanVisualFiles}
+              disabled={scanningVisualFiles}
+            >
+              Scan
+            </ui5-button>
+          </div>
+          <div style="padding: 0 1rem 1rem">
+            Expecting files in these locations:
+            <ul>
+              <li>bemuse-data/back_image.(jpg/png)</li>
+              <li>bemuse-data/eyecatch_image.(jpg/png)</li>
+              <li>bemuse-data/bga.(webm/mp4)</li>
+            </ul>
+          </div>
+        </ui5-card>
+
+        {#if songMeta && state && typeof state === "object"}
+          <div
+            style="display: flex; margin-top: 1rem; gap: 1rem; align-items: flex-start"
+          >
+            <div style="width: 50%; flex: 1">
+              <ui5-card>
+                <ui5-card-header slot="header" title-text="Eyecatch image" />
+                <ImagePreview
+                  directoryHandle={state.directoryHandle}
+                  path={songMeta.eyecatch_image_url}
+                />
+              </ui5-card>
+              <ui5-card style="margin-top: 1rem">
+                <ui5-card-header slot="header" title-text="Background image" />
+                <ImagePreview
+                  directoryHandle={state.directoryHandle}
+                  path={songMeta.back_image_url}
+                />
+              </ui5-card>
+            </div>
+            <div style="width: 50%; flex: 1">
+              <ui5-card>
+                <ui5-card-header slot="header" title-text="BGA" />
+                <div style="padding:1rem">
+                  {#if songMeta.video_url}
+                    {#if songOgg}
+                      <VideoSynchronizer
+                        directoryHandle={state.directoryHandle}
+                        videoPath={songMeta.video_url}
+                        videoOffset={+songMeta.video_offset || 0}
+                        {setVideoOffset}
+                        {songOgg}
+                      />
+                    {:else}
+                      Please render the song in "Preview" tab first.
+                    {/if}
+                  {:else}
+                    No BGA file. Please add a BGA file at the expected locations
+                    and rescan.
+                  {/if}
+                </div>
+              </ui5-card>
+            </div>
+          </div>
         {/if}
       </ui5-tab>
     </ui5-tabcontainer>
