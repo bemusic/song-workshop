@@ -283,6 +283,11 @@
       };
     }
   }
+
+  function calculateNewNotes(n: typeof newNotes) {
+    return Object.values(n).reduce((a, x) => a + Object.keys(x).length, 0);
+  }
+  $: totalNotes = calculateNewNotes(newNotes);
 </script>
 
 <div
@@ -333,6 +338,9 @@
     class="ui5-content-density-compact"
   >
     <div style="position: absolute; inset: 0; overflow: auto;">
+      <ui5-messagestrip design="Information" hide-close-button
+        >notes: {totalNotes}</ui5-messagestrip
+      >
       <ui5-messagestrip design="Information" hide-close-button
         >{info}</ui5-messagestrip
       >
