@@ -36,7 +36,10 @@ export function calculateLayout(
   ];
   const getGroupIndexFromKeysound = memoize((keysound: string) => {
     for (const [i, group] of groups.entries()) {
-      if (group.patterns.some((pattern) => minimatch(keysound, pattern))) {
+      if (
+        keysound &&
+        group.patterns.some((pattern) => minimatch(keysound, pattern))
+      ) {
         return i;
       }
     }
