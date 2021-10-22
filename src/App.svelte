@@ -37,6 +37,7 @@
   async function closeDirectory() {
     await unsetSelectedDirectory();
     await check();
+    location.reload();
   }
 
   async function check() {
