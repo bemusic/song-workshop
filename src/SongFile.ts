@@ -81,7 +81,7 @@ export function validateSong(song: Song) {
     );
   }
   for (const chart of playableCharts) {
-    if (!chart.info.subtitles.length && !song.chart_names[chart.file]) {
+    if (!chart.info.subtitles.length && !song.chart_names?.[chart.file]) {
       report(
         "The chart file “" + chart.file + "” is missing a name",
         "chart_names " + chart.file
