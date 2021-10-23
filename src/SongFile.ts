@@ -51,9 +51,6 @@ export function validateSong(song: Song) {
   if (!song.artist_url) {
     report("Artist URL is missing.", "artist_url");
   }
-  if (!song.added && !song.initial) {
-    report("Release date is missing.", "added");
-  }
   if (!song.song_url && !song.youtube_url && !song.long_url) {
     report(
       "Song/YouTube/long URL is missing.",
