@@ -1,11 +1,17 @@
 <script lang="ts">
+  import Markdown from "./Markdown.svelte";
   import { Song, validateSong } from "./SongFile";
-  export let onSave: (updater: (song: Song) => Song) => void;
+  export let onSave: (
+    updater: (song: Song) => Song,
+    readmeContents: string
+  ) => void;
   export let songJson: any;
+  export let readme: string;
 
   const valueOf = (id: string) => (document.getElementById(id) as any).value;
 
   function save() {
+    const readmeContents = valueOf("song_description").trim();
     onSave((newJson) => {
       newJson.title = valueOf("song_title");
       newJson.artist = valueOf("song_artist");
@@ -17,8 +23,9 @@
       newJson.bmssearch_id = valueOf("bmssearch_id") || undefined;
       newJson.artist_url = valueOf("artist_url") || undefined;
       newJson.added = valueOf("added_date") || undefined;
+      newJson.readme = readmeContents ? "README.md" : "";
       return newJson;
-    });
+    }, readmeContents);
   }
 
   $: songGenre = songJson.genre;
@@ -121,6 +128,7 @@
               placeholder="Description"
               growing
               growing-max-lines="10"
+              value={readme}
             />
           </p>
         </form>
@@ -142,6 +150,16 @@
           </ul>
         {:else}
           No warnings
+        {/if}
+      </div>
+    </ui5-card>
+    <ui5-card style="margin-top: 1rem">
+      <ui5-card-header slot="header" title-text="Song description" />
+      <div style="padding: 1rem;">
+        {#if readme}
+          <Markdown source={readme} />
+        {:else}
+          <em>No description given</em>
         {/if}
       </div>
     </ui5-card>

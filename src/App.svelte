@@ -25,8 +25,6 @@
     | "checking"
     | null
     | { directoryHandle: FileSystemDirectoryHandle } = "checking";
-  let permissionDialog: any;
-  let permissionDialogAllowButton: any;
 
   async function chooseDirectory() {
     const dir = await window.showDirectoryPicker();
@@ -35,9 +33,11 @@
   }
 
   async function closeDirectory() {
-    await unsetSelectedDirectory();
-    await check();
-    location.reload();
+    try {
+      await unsetSelectedDirectory();
+    } finally {
+      location.reload();
+    }
   }
 
   async function check() {
@@ -205,12 +205,22 @@
     }
   }
 
-  async function saveMetadata(update: (song: Song) => Song) {
+  async function saveMetadata(
+    update: (song: Song) => Song,
+    readmeContents: string
+  ) {
     try {
       if (typeof state !== "object") {
         throw new Error("No directory selected");
       }
-      await updateSongFile(state.directoryHandle, update);
+      const { directoryHandle } = state;
+      await updateSongFile(directoryHandle, update);
+      const readmeHandle = await directoryHandle.getFileHandle("README.md", {
+        create: true,
+      });
+      const writable = await readmeHandle.createWritable();
+      await writable.write(readmeContents);
+      await writable.close();
     } finally {
       recheck();
     }
@@ -219,6 +229,7 @@
   Object.assign(window, { convertAudioFiles, indexCharts });
 
   let checkingSong = false;
+  let readme = "";
   let soundAssets: SoundAssetsMetadata | null = null;
   let songMeta: any = null;
   let charts: any[] = [];
@@ -244,12 +255,12 @@
       if (typeof state !== "object") {
         throw new Error("No directory selected");
       }
+      const { directoryHandle } = state;
       const bemuseDataDirPromise =
-        state.directoryHandle.getDirectoryHandle("bemuse-data");
-      const songJsonPromise = getSongFileHandleFromDirectory(
-        state.directoryHandle,
-        { create: false }
-      )
+        directoryHandle.getDirectoryHandle("bemuse-data");
+      const songJsonPromise = getSongFileHandleFromDirectory(directoryHandle, {
+        create: false,
+      })
         .then((f) => f.getFile())
         .then((f) => f.text())
         .then((text) => JSON.parse(text));
@@ -273,6 +284,15 @@
       } catch (error) {
         songMeta = null;
         charts = [];
+      }
+
+      try {
+        const readmeHandle = await directoryHandle.getFileHandle("README.md");
+        readme = await readmeHandle.getFile().then((f) => f.text());
+        console.log(readme);
+      } catch (error) {
+        console.error(error);
+        readme = "";
       }
 
       try {
@@ -593,7 +613,7 @@
 
       <ui5-tab text="Metadata" icon="information" style="padding: 1rem">
         {#if songMeta}
-          <MetadataEditor songJson={songMeta} onSave={saveMetadata} />
+          <MetadataEditor songJson={songMeta} onSave={saveMetadata} {readme} />
         {:else}
           <ui5-label> Please scan charts first. </ui5-label>
         {/if}
