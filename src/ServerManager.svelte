@@ -104,10 +104,32 @@
     console.log("Saved...");
   }
 
-  let scanStatus: Record<string, "scanning" | "error" | "completed"> = {};
+  let scanStatus: Record<
+    string,
+    "scanning" | "error" | "completed" | "skipped"
+  > = {};
 
   async function scanSongs() {
+    scanStatus = {};
+    const selectedUrls = Array.from(
+      document.querySelectorAll("[data-entry-url]")
+    ).flatMap((el: HTMLElement & { selected: boolean }) => {
+      return el.selected ? [el.dataset.entryUrl] : [];
+    });
+    console.log({ selectedUrls });
+    const shouldUpdate = (url: string): boolean => {
+      if (selectedUrls.length > 0) {
+        return selectedUrls.includes(url);
+      } else {
+        const alreadyScanned = data.songs.some((s) => s.path === url);
+        return !alreadyScanned;
+      }
+    };
     for (const { url } of data.urls) {
+      if (!shouldUpdate(url)) {
+        scanStatus[url] = "skipped";
+        continue;
+      }
       try {
         scanStatus[url] = "scanning";
         const { data } = await axios.get(new URL("bemuse-song.json", url).href);
@@ -142,6 +164,12 @@
       return {
         "additional-text": "Scanning...",
         "additional-text-state": "Information",
+      };
+    }
+    if (status === "skipped") {
+      return {
+        "additional-text": "Skipped",
+        "additional-text-state": "Success",
       };
     }
     if (status === "error") {
@@ -197,7 +225,10 @@
         </ui5-card-header>
         <ui5-list mode="MultiSelect" no-data-text="No URLs. ">
           {#each data.urls as entry (entry.url)}
-            <ui5-li {...statusProps(scanStatus[entry.url])}>{entry.url}</ui5-li>
+            <ui5-li
+              {...statusProps(scanStatus[entry.url])}
+              data-entry-url={entry.url}>{entry.url}</ui5-li
+            >
           {/each}
         </ui5-list>
         <form on:submit|preventDefault={() => {}} style="padding: 1rem">
