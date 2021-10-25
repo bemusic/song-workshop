@@ -7,6 +7,7 @@ export interface ServerFile {
 
 export interface UrlEntry {
   url: string;
+  added?: string;
 }
 
 export interface SongEntry extends Song {

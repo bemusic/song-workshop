@@ -87,7 +87,7 @@
     const newUrls = [...data.urls];
     for (const url of urls) {
       if (!newUrls.some((item) => item.url === url)) {
-        newUrls.push({ url });
+        newUrls.push({ url, added: new Date().toISOString().slice(0, 10) });
       }
     }
     data.urls = newUrls;
@@ -125,15 +125,20 @@
         return !alreadyScanned;
       }
     };
-    for (const { url } of data.urls) {
+    for (const { url, added } of data.urls) {
       if (!shouldUpdate(url)) {
         scanStatus[url] = "skipped";
         continue;
       }
       try {
         scanStatus[url] = "scanning";
-        const { data } = await axios.get(new URL("bemuse-song.json", url).href);
-        updateSongData(url, data);
+        const { data } = await axios.get<Song>(
+          new URL("bemuse-song.json", url).href
+        );
+        updateSongData(url, {
+          ...data,
+          ...(added ? { added: added + "T00:00:00.000Z" } : {}),
+        });
         scanStatus[url] = "completed";
       } catch (error) {
         scanStatus[url] = "error";
@@ -157,34 +162,45 @@
   }
 
   function statusProps(status: typeof scanStatus[string]): {
-    "additional-text"?: string;
-    "additional-text-state"?: "Success" | "Warning" | "Information" | "Error";
+    text?: string;
+    status?: "Success" | "Warning" | "Information" | "Error" | "None";
   } {
     if (status === "scanning") {
       return {
-        "additional-text": "Scanning...",
-        "additional-text-state": "Information",
+        text: "Scanning...",
+        status: "Information",
       };
     }
     if (status === "skipped") {
       return {
-        "additional-text": "Skipped",
-        "additional-text-state": "Success",
+        text: "Skipped",
+        status: "Success",
       };
     }
     if (status === "error") {
       return {
-        "additional-text": "Error",
-        "additional-text-state": "Error",
+        text: "Error",
+        status: "Error",
       };
     }
     if (status === "completed") {
       return {
-        "additional-text": "Completed",
-        "additional-text-state": "Success",
+        text: "Completed",
+        status: "Success",
       };
     }
-    return {};
+    return { text: "", status: "None" };
+  }
+
+  function sortSongs(songs: Song[]) {
+    const sortKey = (song: Song): string => {
+      if (song.initial) return "a";
+      if (song.added) return "b" + song.added;
+      return "c";
+    };
+    return (songs || [])
+      .slice()
+      .sort((a, b) => sortKey(b).localeCompare(sortKey(a)));
   }
 
   onMount(() => {
@@ -220,17 +236,42 @@
       <ui5-card>
         <ui5-card-header slot="header" title-text="URLs">
           <ui5-button slot="action" on:click={scanSongs}>
-            Scan songs
+            Update data
           </ui5-button>
         </ui5-card-header>
-        <ui5-list mode="MultiSelect" no-data-text="No URLs. ">
-          {#each data.urls as entry (entry.url)}
-            <ui5-li
-              {...statusProps(scanStatus[entry.url])}
-              data-entry-url={entry.url}>{entry.url}</ui5-li
+        <div style="overflow: auto; max-height: 64vh">
+          <ui5-table
+            mode="MultiSelect"
+            no-data-text="No URLs."
+            sticky-column-header="true"
+          >
+            <ui5-table-column slot="columns">URL</ui5-table-column>
+            <ui5-table-column slot="columns">Added</ui5-table-column>
+            <ui5-table-column slot="columns" style="width: 12rem"
+              >Status</ui5-table-column
             >
-          {/each}
-        </ui5-list>
+            {#each data.urls as entry (entry.url)}
+              <ui5-table-row data-entry-url={entry.url}>
+                <ui5-table-cell>{entry.url}</ui5-table-cell>
+                <ui5-table-cell>
+                  {#if entry.added}
+                    {entry.added}
+                  {:else}
+                    (from metadata)
+                  {/if}
+                </ui5-table-cell>
+                <ui5-table-cell>
+                  <span
+                    data-status={statusProps(scanStatus[entry.url]).status}
+                    class="url-status-text"
+                  >
+                    {statusProps(scanStatus[entry.url]).text}
+                  </span>
+                </ui5-table-cell>
+              </ui5-table-row>
+            {/each}
+          </ui5-table>
+        </div>
         <form on:submit|preventDefault={() => {}} style="padding: 1rem">
           <strong>Add URL</strong>
           <div>
@@ -252,11 +293,20 @@
       <ui5-card>
         <ui5-card-header slot="header" title-text="Songs" />
         <ui5-table class="demo-table" id="table">
+          <ui5-table-column slot="columns"> Added </ui5-table-column>
           <ui5-table-column slot="columns"> Genre </ui5-table-column>
           <ui5-table-column slot="columns"> Title </ui5-table-column>
           <ui5-table-column slot="columns"> Artist </ui5-table-column>
-          {#each data.songs as song (song.id)}
+          {#each sortSongs(data.songs) as song (song.id)}
             <ui5-table-row>
+              <ui5-table-cell>
+                {#if song.initial}
+                  (initial)
+                {:else}
+                  {(song.added && song.added.slice(0, 10)) ||
+                    "MISSING ADDED DATE"}
+                {/if}
+              </ui5-table-cell>
               <ui5-table-cell>{song.genre}</ui5-table-cell>
               <ui5-table-cell>{song.title}</ui5-table-cell>
               <ui5-table-cell>{song.artist}</ui5-table-cell>
@@ -281,5 +331,17 @@
   :global(body) {
     margin: 0;
     padding: 0;
+  }
+  .url-status-text[data-status="Information"] {
+    color: var(--sapInformationColor);
+  }
+  .url-status-text[data-status="Error"] {
+    color: var(--sapErrorColor);
+  }
+  .url-status-text[data-status="Warning"] {
+    color: var(--sapWarningColor);
+  }
+  .url-status-text[data-status="Success"] {
+    color: var(--sapSuccessColor);
   }
 </style>
