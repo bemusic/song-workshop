@@ -125,7 +125,7 @@
         return !alreadyScanned;
       }
     };
-    for (const { url, added } of data.urls) {
+    for (const { url, added, title } of data.urls) {
       if (!shouldUpdate(url)) {
         scanStatus[url] = "skipped";
         continue;
@@ -138,6 +138,7 @@
         updateSongData(url, {
           ...data,
           ...(added ? { added: added + "T00:00:00.000Z" } : {}),
+          ...(title ? { title } : {}),
         });
         scanStatus[url] = "completed";
       } catch (error) {
