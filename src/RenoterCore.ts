@@ -47,33 +47,44 @@ export async function renoteBms(
   const timeSignatureByMeasure = memoize((measure: number) => ({ size: 960 }));
   for (const line of bmsLines) {
     if (line.channel === "02" && line.data instanceof BMSValue) {
-      timeSignatureByMeasure(line.measure).size = 960 * +line.data.value;
+      timeSignatureByMeasure(line.measure).size = Math.round(
+        960 * +line.data.value
+      );
     }
   }
 
   // Move notes to new channels
   const newNotesWriter = new NewNotesWriter();
+  let unmatchedNotes = 0;
   for (const [timeKey, overrides] of Object.entries(data.newNotes || {})) {
     const [measure, tick] = timeKey.split(":").map((x) => parseInt(x, 10));
     const measureSize = timeSignatureByMeasure(measure).size;
     for (const [channel, { value, length }] of Object.entries(overrides)) {
       const linesOnThisMeasure = bmsLinesByMeasure(measure);
+      let found = false;
       for (const line of linesOnThisMeasure) {
+        if (found) break;
         if (!line.isNoteData()) continue;
         if (!(line.data instanceof BMSObjectList)) continue;
         const objects = line.data.objects;
         for (const [i, sourceValue] of objects.entries()) {
+          if (found) break;
           const sourceTick = Math.round((i * measureSize) / objects.length);
           if (sourceTick === tick && sourceValue === value) {
             const targetChannel = targetChannelOf[channel];
             if (length > 0) {
               lnUsed = true;
               const targetLnChannel = targetChannel.replace(/^1/, "5");
-              newNotesWriter.addNote(measure, tick, targetLnChannel, value);
+              newNotesWriter.addNote(
+                measure,
+                sourceTick,
+                targetLnChannel,
+                value
+              );
               let endMeasure = measure;
-              let endTick = tick + length;
+              let endTick = sourceTick + length;
               while (endTick >= timeSignatureByMeasure(endMeasure).size) {
-                endTick -= timeSignatureByMeasure(endMeasure).size;
+                endTick -= Math.round(timeSignatureByMeasure(endMeasure).size);
                 endMeasure++;
               }
               newNotesWriter.addNote(
@@ -83,14 +94,17 @@ export async function renoteBms(
                 value
               );
             } else {
-              newNotesWriter.addNote(measure, tick, targetChannel, value);
+              newNotesWriter.addNote(measure, sourceTick, targetChannel, value);
             }
             objects[i] = "00";
+            found = true;
           }
         }
       }
+      if (!found) unmatchedNotes += 1;
     }
   }
+  console.log(unmatchedNotes + " notes not matched");
   if (lnUsed) {
     output.push(new RawLine(new TextEncoder().encode("#LNTYPE 1")));
   }
@@ -149,8 +163,13 @@ class NewBMSLine {
     const step = this.items.reduce((a, b) => gcd(a, b.tick), measureSize);
     const values = keyBy(this.items, (x) => x.tick);
     const out: string[] = [];
+    let start = Date.now();
     for (let i = 0; i < measureSize; i += step) {
       out.push(values[i]?.value ?? "00");
+      if (Date.now() - start > 1000) {
+        console.error({ i, step, measureSize });
+        throw new Error("wtf");
+      }
     }
     return new BMSLine(this.command + out.join(""));
   }
