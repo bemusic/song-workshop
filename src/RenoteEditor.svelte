@@ -77,7 +77,7 @@
           objects: [],
           timeKey: [
             o.measure,
-            Math.round((o.fraction * 960) / (beatsThisMeasure / 4)),
+            Math.round(o.fraction * 960 * (beatsThisMeasure / 4)),
           ].join(":"),
         };
         rows.push(row);
