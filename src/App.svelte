@@ -13,6 +13,7 @@
   import MetadataEditor from "./MetadataEditor.svelte";
   import {
     getSongFileHandleFromDirectory,
+    getMetadataStatus,
     Song,
     updateSongFile,
   } from "./SongFile";
@@ -343,6 +344,8 @@
     }, 0);
   }
 
+  $: metadataStatus = getMetadataStatus(songMeta);
+
   $: checkItems = [
     {
       label: "Optimize sound assets",
@@ -371,6 +374,8 @@
     {
       label: "Song metadata",
       description: "Set up song metadata.",
+      ok: metadataStatus.ok,
+      infoText: metadataStatus.infoText,
     },
   ];
 

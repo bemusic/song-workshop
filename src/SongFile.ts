@@ -87,3 +87,20 @@ export function validateSong(song: Song) {
   }
   return problems;
 }
+
+export function getMetadataStatus(song: Song | null) {
+  if (!song) {
+    return { ok: false, infoText: "Metadata file has not been created yet." };
+  }
+  if (
+    song.readme ||
+    song.artist_url ||
+    song.song_url ||
+    song.long_url ||
+    song.bms_url ||
+    song.bmssearch_id
+  ) {
+    return { ok: true, infoText: "Song metadata available." };
+  }
+  return { ok: false, infoText: "Please update song metadata." };
+}
